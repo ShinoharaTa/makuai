@@ -4,7 +4,13 @@ import { answers, participants, slots, user, type Mark } from './db/schema';
 
 export interface EventDetail {
 	slots: (typeof slots.$inferSelect)[];
-	participants: { id: string; userId: string; name: string; image: string | null }[];
+	participants: {
+		id: string;
+		userId: string;
+		name: string;
+		hasCustomName: boolean;
+		image: string | null;
+	}[];
 	/** marks[participantId][slotId] = mark */
 	marks: Record<string, Record<string, Mark>>;
 	/** counts[slotId] = 集計 */
@@ -23,6 +29,7 @@ export async function loadEventDetail(db: Database, eventId: string): Promise<Ev
 			id: participants.id,
 			userId: participants.userId,
 			name: user.name,
+			displayName: participants.displayName,
 			image: user.image,
 			createdAt: participants.createdAt
 		})
@@ -50,7 +57,12 @@ export async function loadEventDetail(db: Database, eventId: string): Promise<Ev
 
 	return {
 		slots: slotRows,
-		participants: participantRows.map(({ createdAt: _createdAt, ...p }) => p),
+		// 表示名(イベントごとのニックネーム)があれば user.name より優先
+		participants: participantRows.map(({ createdAt: _createdAt, name, displayName, ...p }) => ({
+			...p,
+			name: displayName?.trim() || name,
+			hasCustomName: Boolean(displayName?.trim())
+		})),
 		marks,
 		counts
 	};

@@ -13,8 +13,22 @@
 	const markChoices = [
 		{ value: 'yes', symbol: '○', label: '行ける' },
 		{ value: 'maybe', symbol: '△', label: 'たぶん' },
-		{ value: 'no', symbol: '×', label: '無理' }
+		{ value: 'no', symbol: '×', label: '無理' },
+		{ value: 'clear', symbol: '−', label: '未回答' }
 	] as const;
+
+	// #13 の教訓: use:enhance は onsubmit の preventDefault を無視するため cancel() で止める
+	function withConfirm(message: string) {
+		return ({ cancel }: { cancel: () => void }) => {
+			if (!confirm(message)) {
+				cancel();
+				return;
+			}
+			return async ({ update }: { update: () => Promise<void> }) => {
+				await update();
+			};
+		};
+	}
 
 	const ogDescription = $derived(
 		data.authed
@@ -197,7 +211,9 @@
 										type="radio"
 										name="slot_{slot.id}"
 										value={choice.value}
-										checked={data.myMarks[slot.id] === choice.value}
+										checked={choice.value === 'clear'
+											? !data.myMarks[slot.id]
+											: data.myMarks[slot.id] === choice.value}
 									/>
 									<span>{choice.symbol} {choice.label}</span>
 								</label>
@@ -205,11 +221,35 @@
 						</div>
 					</div>
 				{/each}
+				<label class="display-name">
+					この調整での表示名(空欄なら Google の名前)
+					<input
+						type="text"
+						name="display_name"
+						value={data.myDisplayName}
+						maxlength="30"
+						placeholder={data.user?.name ?? ''}
+					/>
+				</label>
 				<button type="submit" class="btn btn-primary" disabled={submitting}>
 					{submitting ? '送信中…' : data.hasAnswered ? '回答を更新する' : '参加表明する'}
 				</button>
 			</div>
 		</form>
+	{/if}
+
+	{#if data.hasAnswered}
+		<div class="leave-row">
+			<form
+				method="POST"
+				action="?/leave"
+				use:enhance={withConfirm(
+					'この調整から退出します。あなたの回答はすべて消えます。よろしいですか?'
+				)}
+			>
+				<button class="btn btn-ghost btn-sm">この調整から退出する</button>
+			</form>
+		</div>
 	{/if}
 {/if}
 
@@ -453,6 +493,30 @@
 		border-color: var(--no);
 		color: #17121f;
 		font-weight: 700;
+	}
+
+	.mark-choice-clear input:checked + span {
+		background: var(--surface-2);
+		border-color: var(--text-dim);
+		color: var(--text-dim);
+		font-weight: 700;
+	}
+
+	.display-name {
+		display: grid;
+		gap: 0.3rem;
+		font-size: 0.85em;
+		color: var(--text-dim);
+		width: 100%;
+		max-width: 340px;
+	}
+
+	.leave-row {
+		margin-top: 2.5rem;
+		padding-top: 1rem;
+		border-top: 1px dashed var(--border);
+		display: flex;
+		justify-content: flex-end;
 	}
 
 	/* モバイル: ○△× のタップ領域を広めに */
