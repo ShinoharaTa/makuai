@@ -1,18 +1,10 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
+	import { formatSlot } from '$lib/format';
 
 	let { data, form } = $props();
 
 	const statusLabel = { open: '募集中', suspended: '募集停止', closed: '募集終了' } as const;
-
-	const weekdays = ['日', '月', '火', '水', '木', '金', '土'];
-
-	function formatSlot(slot: { date: string; startTime: string; label: string }): string {
-		const [y, m, d] = slot.date.split('-').map(Number);
-		const wd = weekdays[new Date(y, m - 1, d).getDay()];
-		const base = `${m}/${d}(${wd}) ${slot.startTime}`;
-		return slot.label ? `${base} ${slot.label}` : base;
-	}
 
 	const isOpen = $derived(data.event.status === 'open');
 	const isSuspended = $derived(data.event.status === 'suspended');
