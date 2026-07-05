@@ -57,7 +57,7 @@
 <div class="card status-card">
 	{#if isOpen}
 		<p class="muted">
-			候補の日時を変更したり中止にしたりする時は、まず「募集停止」にしてください(回答が一時止まります)。
+			候補の日時を変更する時は、まず「募集停止」にしてください(回答が一時止まります)。回の中止はいつでもできます。
 		</p>
 		<div class="btn-row">
 			<form method="POST" action="?/suspend" use:enhance>
@@ -104,7 +104,7 @@
 <h2 class="section-title">候補の回</h2>
 <div class="card slots-card">
 	{#if isOpen}
-		<p class="muted">日時の変更・中止をするには、先に「募集停止」にしてください。追加はいつでもできます。</p>
+		<p class="muted">日時の変更をするには、先に「募集停止」にしてください。追加・中止はいつでもできます。</p>
 	{/if}
 	{#each data.detail.slots as slot (slot.id)}
 		<div class="slot-line" class:cancelled={slot.isCancelled}>
@@ -123,6 +123,13 @@
 					/>
 					<button class="btn btn-sm" disabled={slot.isCancelled}>保存</button>
 				</form>
+			{:else}
+				<span class="slot-text">
+					{formatSlot(slot)}
+					{#if slot.isCancelled}<span class="chip chip-closed">中止</span>{/if}
+				</span>
+			{/if}
+			{#if !isClosed}
 				<form
 					method="POST"
 					action={slot.isCancelled ? '?/restoreSlot' : '?/cancelSlot'}
@@ -133,11 +140,6 @@
 						{slot.isCancelled ? '中止を取り消す' : 'この回を中止'}
 					</button>
 				</form>
-			{:else}
-				<span class="slot-text">
-					{formatSlot(slot)}
-					{#if slot.isCancelled}<span class="chip chip-closed">中止</span>{/if}
-				</span>
 			{/if}
 		</div>
 	{/each}

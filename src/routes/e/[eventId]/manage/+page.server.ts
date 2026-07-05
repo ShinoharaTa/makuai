@@ -7,6 +7,7 @@ import {
 	loadEventOr404,
 	requireOwner,
 	slotAddBlockedReason,
+	slotCancelBlockedReason,
 	slotEditBlockedReason,
 	type EventRow
 } from '$lib/server/guards';
@@ -151,7 +152,7 @@ export const actions: Actions = {
 
 	cancelSlot: async (e) => {
 		const event = await loadOwnedEvent(e);
-		const blocked = slotEditBlockedReason(event);
+		const blocked = slotCancelBlockedReason(event);
 		if (blocked) return fail(409, { message: blocked });
 
 		const form = await e.request.formData();
@@ -165,7 +166,7 @@ export const actions: Actions = {
 
 	restoreSlot: async (e) => {
 		const event = await loadOwnedEvent(e);
-		const blocked = slotEditBlockedReason(event);
+		const blocked = slotCancelBlockedReason(event);
 		if (blocked) return fail(409, { message: blocked });
 
 		const form = await e.request.formData();

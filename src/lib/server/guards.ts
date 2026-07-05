@@ -42,9 +42,15 @@ export function slotAddBlockedReason(event: EventRow): string | null {
 	return null;
 }
 
-// スロットの日時変更・中止・復活は suspended のときのみ(回答を止めてから行う)
+// スロットの中止・復活は open / suspended で可(「この回はなかったことに」は募集中でもできる)
+export function slotCancelBlockedReason(event: EventRow): string | null {
+	if (event.status === 'closed') return '募集終了した調整の候補は変更できません';
+	return null;
+}
+
+// スロットの日時変更は suspended のときのみ(回答済みの前提が変わるため、回答を止めてから行う)
 export function slotEditBlockedReason(event: EventRow): string | null {
 	if (event.status === 'closed') return '募集終了した調整の候補は変更できません';
-	if (event.status !== 'suspended') return '候補の変更は「募集停止」にしてから行ってください';
+	if (event.status !== 'suspended') return '日時の変更は「募集停止」にしてから行ってください';
 	return null;
 }
