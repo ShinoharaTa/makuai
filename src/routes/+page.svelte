@@ -1,8 +1,23 @@
 <script lang="ts">
+	import { page } from '$app/state';
+
 	let { data } = $props();
 
 	const statusLabel = { open: '募集中', suspended: '募集停止', closed: '募集終了' } as const;
+	const description = '幕間(まくあい)は観劇・ライブ・推し活のための日程調整。公演の回ごとに、誰が行けるかがひと目でわかります。';
 </script>
+
+<svelte:head>
+	<title>幕間 makuai — みんなでどの回に行く?</title>
+	<meta name="description" content={description} />
+	<meta property="og:type" content="website" />
+	<meta property="og:site_name" content="幕間 makuai" />
+	<meta property="og:title" content="幕間 makuai — みんなでどの回に行く?" />
+	<meta property="og:description" content={description} />
+	<meta property="og:url" content={page.url.origin + '/'} />
+	<meta property="og:image" content={page.url.origin + '/ogp.png'} />
+	<meta name="twitter:card" content="summary_large_image" />
+</svelte:head>
 
 {#if !data.user}
 	<section class="hero">
