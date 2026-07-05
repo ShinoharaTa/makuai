@@ -31,6 +31,19 @@ npm run preview   # build + wrangler dev(http://localhost:8787)
 > `/api/auth/*` が 404 になる。`wrangler dev`(port 8787)で試すときは
 > `.dev.vars` の `BETTER_AUTH_URL` を `http://localhost:8787` に合わせること。
 
+## テスト
+
+```sh
+npm run test:unit   # vitest(guards / format のユニットテスト)
+npm run test:e2e    # ローカル D1 + dev サーバー(port 4173)で curl E2E(44項目)
+npm test            # 両方
+```
+
+> **注意**: `test:e2e` はローカル D1 のアプリテーブルを消してテスト用ユーザーを投入する。
+> 署名済みセッション Cookie を直接生成するため Google ログインは不要。`.dev.vars` がなければ自動生成される。
+
+PR と develop / main への push で GitHub Actions(型チェック → unit → e2e → build)が実行される(`.github/workflows/ci.yml`)。
+
 ## スキーマ変更
 
 ```sh
