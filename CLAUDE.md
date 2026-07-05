@@ -8,6 +8,10 @@
 
 MVP 実装済み(2026-07-05)。Google ログイン、イベント作成(公演スロット)、○△×回答、集計マトリクス、ステータス管理(open/suspended/closed)、確定(confirm)まで動く。実際の Google ログインには OAuth クライアントの設定(README 参照)が必要。未着手: 常設NGルール、カレンダー free/busy 取り込み、確定のカレンダー出力、通知。
 
+## ブランチ運用
+
+開発は `develop` ブランチで行い、develop 環境(`wrangler.jsonc` の `env.develop`、`npm run deploy:dev`)で動作確認してから `main` に取り込んで本番デプロイする。develop の URL は知っている人がアクセスできて良い扱い。リモートは git@github.com:ShinoharaTa/makuai.git。
+
 ## スタック(確定)
 
 - Cloudflare Workers + D1 + SvelteKit(adapter-cloudflare)+ Drizzle ORM + Better Auth(Google ログイン、全員アカウント必須)

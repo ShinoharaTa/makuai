@@ -46,20 +46,44 @@ npm run db:migrate:local  # ローカルに適用
 npx @better-auth/cli generate --config scripts/auth-cli-config.ts --output src/lib/server/db/auth-schema.ts --yes
 ```
 
-## デプロイ
+## ブランチ運用
+
+- `develop` — 開発ブランチ。動作確認は develop 環境(`makuai-develop` Worker)で行う
+- `main` — 本番。develop で確認できたものを取り込んでから本番デプロイ
+
+develop 環境の URL は「知っている人はアクセスできて OK」の扱い(認証自体は本番同様 Google ログイン必須)。
+
+## デプロイ(develop 環境)
+
+初回のみ:
 
 1. `npx wrangler login`
-2. `npx wrangler d1 create makuai` → 発行された `database_id` を `wrangler.jsonc` に記入
-3. `npm run db:migrate:remote`
-4. 本番用 Google OAuth クライアントを作成(リダイレクト URI: `https://<デプロイ先>/api/auth/callback/google`)
-5. `wrangler.jsonc` の `vars.BETTER_AUTH_URL` をデプロイ先 URL に変更
+2. `npx wrangler d1 create makuai-develop` → 発行された `database_id` を `wrangler.jsonc` の `env.develop` に記入
+3. `npm run db:migrate:dev`
+4. `npm run deploy:dev` → 表示された workers.dev URL を `env.develop.vars.BETTER_AUTH_URL` に記入して再デプロイ
+5. Google OAuth クライアントのリダイレクト URI に `https://<develop URL>/api/auth/callback/google` を追加
 6. シークレット登録:
+   ```sh
+   npx wrangler secret put GOOGLE_CLIENT_ID --env develop
+   npx wrangler secret put GOOGLE_CLIENT_SECRET --env develop
+   npx wrangler secret put BETTER_AUTH_SECRET --env develop   # openssl rand -hex 32 などで生成
+   ```
+
+以後は `npm run deploy:dev`(スキーマ変更があれば先に `npm run db:migrate:dev`)。
+
+## デプロイ(本番)
+
+1. `npx wrangler d1 create makuai` → 発行された `database_id` を `wrangler.jsonc`(トップレベル)に記入
+2. `npm run db:migrate:remote`
+3. 本番用リダイレクト URI(`https://<本番URL>/api/auth/callback/google`)を OAuth クライアントに追加
+4. `wrangler.jsonc` の `vars.BETTER_AUTH_URL` を本番 URL に変更
+5. シークレット登録(`--env` なし):
    ```sh
    npx wrangler secret put GOOGLE_CLIENT_ID
    npx wrangler secret put GOOGLE_CLIENT_SECRET
-   npx wrangler secret put BETTER_AUTH_SECRET   # openssl rand -hex 32 などで生成
+   npx wrangler secret put BETTER_AUTH_SECRET
    ```
-7. `npm run deploy`
+6. `npm run deploy`
 
 ## イベントステータス
 

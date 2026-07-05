@@ -19,6 +19,27 @@
 		}
 	],
 	"vars": {
+		// 本番デプロイ時に本番 URL へ差し替える(ローカルは .dev.vars が優先される)
 		"BETTER_AUTH_URL": "http://localhost:5173"
+	},
+	// develop 環境: develop ブランチの動作確認用(URL を知っていればアクセス可でOK)
+	// デプロイ: npm run deploy:dev / マイグレーション: npm run db:migrate:dev
+	"env": {
+		"develop": {
+			"name": "makuai-develop",
+			"d1_databases": [
+				{
+					"binding": "DB",
+					"database_name": "makuai-develop",
+					// `wrangler d1 create makuai-develop` で発行された ID に差し替える
+					"database_id": "00000000-0000-0000-0000-000000000000",
+					"migrations_dir": "migrations"
+				}
+			],
+			"vars": {
+				// デプロイ後に実際の workers.dev URL へ差し替える(不一致だと /api/auth/* が 404 になる)
+				"BETTER_AUTH_URL": "https://makuai-develop.example.workers.dev"
+			}
+		}
 	}
 }

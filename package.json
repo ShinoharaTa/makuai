@@ -12,8 +12,10 @@
 		"check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
 		"db:generate": "drizzle-kit generate",
 		"db:migrate:local": "wrangler d1 migrations apply makuai --local",
+		"db:migrate:dev": "wrangler d1 migrations apply makuai-develop --env develop --remote",
 		"db:migrate:remote": "wrangler d1 migrations apply makuai --remote",
-		"deploy": "npm run build && wrangler deploy"
+		"deploy": "npm run build && wrangler deploy",
+		"deploy:dev": "npm run build && wrangler deploy --env develop"
 	},
 	"devDependencies": {
 		"@cloudflare/workers-types": "^4.20260702.1",
