@@ -3,7 +3,9 @@
 	"name": "makuai",
 	"main": ".svelte-kit/cloudflare/_worker.js",
 	"compatibility_date": "2026-07-01",
-	"compatibility_flags": ["nodejs_compat"],
+	"compatibility_flags": [
+		"nodejs_compat"
+	],
 	"assets": {
 		"binding": "ASSETS",
 		"directory": ".svelte-kit/cloudflare"
@@ -31,14 +33,13 @@
 				{
 					"binding": "DB",
 					"database_name": "makuai-develop",
-					// `wrangler d1 create makuai-develop` で発行された ID に差し替える
-					"database_id": "00000000-0000-0000-0000-000000000000",
+					"database_id": "225b968c-0d3d-44b6-b1a4-7cc406cfe74b",
 					"migrations_dir": "migrations"
 				}
 			],
 			"vars": {
-				// デプロイ後に実際の workers.dev URL へ差し替える(不一致だと /api/auth/* が 404 になる)
-				"BETTER_AUTH_URL": "https://makuai-develop.example.workers.dev"
+				// このオリジンと不一致だと /api/auth/* が 404 になる
+				"BETTER_AUTH_URL": "https://makuai-develop.shino3.workers.dev"
 			}
 		}
 	}
