@@ -19,7 +19,7 @@
 </script>
 
 <h1>調整をつくる</h1>
-<p class="muted">公演の情報と候補の回を入れて、同行者に共有 URL を送りましょう。</p>
+<p class="muted">イベントの情報と候補の日時を入れて、メンバーに共有 URL を送りましょう。</p>
 
 {#if form?.message}
 	<p class="error-note">{form.message}</p>
@@ -38,12 +38,12 @@
 >
 	<div class="card form-card">
 		<label>
-			公演タイトル <span class="req">必須</span>
-			<input type="text" name="title" required maxlength="120" placeholder="例: ミュージカル『◯◯』大阪公演" />
+			タイトル <span class="req">必須</span>
+			<input type="text" name="title" required maxlength="120" placeholder="例: ◯◯のライブ / オフ会 / 温泉旅行" />
 		</label>
 		<label>
-			会場
-			<input type="text" name="venue" maxlength="120" placeholder="例: 梅田芸術劇場" />
+			場所
+			<input type="text" name="venue" maxlength="120" placeholder="例: 大阪・梅田" />
 		</label>
 		<label>
 			メモ
@@ -51,18 +51,18 @@
 		</label>
 	</div>
 
-	<h2 class="slots-title">候補の回</h2>
+	<h2 class="slots-title">候補の日時</h2>
 	<div class="card form-card">
 		{#each slotRows as row, i (row)}
 			<div class="slot-row">
-				<input type="date" name="slot_date" bind:value={row.date} aria-label="公演日" />
-				<input type="time" name="slot_time" bind:value={row.time} aria-label="開演時間" />
+				<input type="date" name="slot_date" bind:value={row.date} aria-label="日付" />
+				<input type="time" name="slot_time" bind:value={row.time} aria-label="開始時間" />
 				<input
 					type="text"
 					name="slot_label"
 					bind:value={row.label}
 					maxlength="30"
-					placeholder="昼公演・千秋楽 など"
+					placeholder="昼の部・夜の部 など"
 					aria-label="ラベル"
 				/>
 				<button
@@ -76,12 +76,12 @@
 				</button>
 			</div>
 		{/each}
-		<button type="button" class="btn btn-sm" onclick={addRow}>+ 回を追加</button>
+		<button type="button" class="btn btn-sm" onclick={addRow}>+ 候補を追加</button>
 	</div>
 
 	<div class="submit-row">
 		<button type="submit" class="btn btn-primary" disabled={submitting}>
-			{submitting ? '作成中…' : 'この内容で開幕'}
+			{submitting ? '作成中…' : 'この内容で作成する'}
 		</button>
 	</div>
 </form>

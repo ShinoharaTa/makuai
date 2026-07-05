@@ -37,7 +37,7 @@
 		{@render children()}
 	</main>
 
-	<footer class="footer muted">幕間 makuai — エンタメのための日程調整</footer>
+	<footer class="footer muted">幕間 makuai — みんなの日程調整</footer>
 </div>
 
 <style>
