@@ -73,6 +73,24 @@ export const participants = sqliteTable(
 	]
 );
 
+// アカウント常設のNGルール(繰り返しの都合)。本人にしか見えない。
+// ラベル・メモ類のカラムは意図的に持たない(NG理由を保持しない原則)。
+export const ngRules = sqliteTable(
+	'ng_rules',
+	{
+		id: text('id').primaryKey(),
+		userId: text('user_id')
+			.notNull()
+			.references(() => user.id, { onDelete: 'cascade' }),
+		// 対象曜日。0=日〜6=土 の CSV(例: '1,2,3,4,5' = 平日)
+		days: text('days').notNull(),
+		startTime: text('start_time').notNull(), // NG 時間帯の開始 'HH:MM'
+		endTime: text('end_time').notNull(), // NG 時間帯の終了 'HH:MM'
+		createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull()
+	},
+	(table) => [index('ng_rules_user_idx').on(table.userId)]
+);
+
 // NG 理由・コメントに類するカラムは仕様として存在させない(REQUIREMENTS のプライバシー原則)
 export const answers = sqliteTable(
 	'answers',

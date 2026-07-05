@@ -189,6 +189,11 @@
 	{#if data.blockedReason}
 		<p class="muted">{data.blockedReason}</p>
 	{:else}
+		{#if Object.keys(data.suggestions).length > 0}
+			<p class="suggestion-note">
+				✨ あなたの<a href="/settings/rules">都合ルール</a>から未回答分を下書きしました。確認して送信してください。
+			</p>
+		{/if}
 		<form
 			method="POST"
 			action="?/answer"
@@ -202,8 +207,12 @@
 		>
 			<div class="card answer-card">
 				{#each data.detail.slots.filter((s) => !s.isCancelled) as slot (slot.id)}
-					<div class="answer-row">
-						<span class="answer-slot">{formatSlot(slot)}</span>
+					{@const suggested = !data.myMarks[slot.id] ? data.suggestions[slot.id] : undefined}
+					<div class="answer-row" class:suggested={Boolean(suggested)}>
+						<span class="answer-slot">
+							{formatSlot(slot)}
+							{#if suggested}<span class="suggested-tag">✨下書き</span>{/if}
+						</span>
 						<div class="mark-group" role="radiogroup" aria-label={formatSlot(slot)}>
 							{#each markChoices as choice (choice.value)}
 								<label class="mark-choice mark-choice-{choice.value}">
@@ -211,9 +220,11 @@
 										type="radio"
 										name="slot_{slot.id}"
 										value={choice.value}
-										checked={choice.value === 'clear'
-											? !data.myMarks[slot.id]
-											: data.myMarks[slot.id] === choice.value}
+										checked={data.myMarks[slot.id]
+											? data.myMarks[slot.id] === choice.value
+											: suggested
+												? suggested === choice.value
+												: choice.value === 'clear'}
 									/>
 									<span>{choice.symbol} {choice.label}</span>
 								</label>
@@ -509,6 +520,21 @@
 		color: var(--text-dim);
 		width: 100%;
 		max-width: 340px;
+	}
+
+	.suggestion-note {
+		background: color-mix(in srgb, var(--gold) 12%, transparent);
+		border: 1px solid var(--gold);
+		border-radius: 8px;
+		padding: 0.6em 1em;
+		margin: 0.8em 0 0;
+	}
+
+	.suggested-tag {
+		font-size: 0.72em;
+		color: var(--gold);
+		margin-left: 0.4em;
+		vertical-align: middle;
 	}
 
 	.leave-row {

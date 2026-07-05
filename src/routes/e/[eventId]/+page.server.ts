@@ -1,10 +1,11 @@
 import { fail } from '@sveltejs/kit';
 import { and, count, eq } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
+import { suggestMarks } from '$lib/rules';
 import { loadEventDetail } from '$lib/server/events';
 import { answerBlockedReason, loadEventOr404 } from '$lib/server/guards';
 import { redirectToLogin } from '$lib/server/redirect';
-import { answers, participants, slots, MARKS, type Mark } from '$lib/server/db/schema';
+import { answers, ngRules, participants, slots, MARKS, type Mark } from '$lib/server/db/schema';
 import type { Actions, PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async ({ locals, params }) => {
@@ -40,8 +41,18 @@ export const load: PageServerLoad = async ({ locals, params }) => {
 	const myParticipant = detail.participants.find((p) => p.userId === locals.user!.id);
 	const myMarks: Record<string, Mark> = myParticipant ? (detail.marks[myParticipant.id] ?? {}) : {};
 
+	// 常設NGルールによる下書き提案。未回答の有効スロットにだけ提案し、
+	// 保存は本人の送信まで行わない(自動確定させない)
+	const myRules = await db.select().from(ngRules).where(eq(ngRules.userId, locals.user!.id));
+	const unanswered = detail.slots.filter((s) => !s.isCancelled && !myMarks[s.id]);
+	const suggestions = suggestMarks(
+		unanswered.map((s) => ({ id: s.id, date: s.date, startTime: s.startTime })),
+		myRules
+	);
+
 	return {
 		authed: true as const,
+		suggestions,
 		myDisplayName: myParticipant?.hasCustomName ? myParticipant.name : '',
 		event: {
 			id: event.id,
