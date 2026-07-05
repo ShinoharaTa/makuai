@@ -8,9 +8,15 @@
 
 MVP 実装済み(2026-07-05)。Google ログイン、イベント作成(公演スロット)、○△×回答、集計マトリクス、ステータス管理(open/suspended/closed)、確定(confirm)まで動く。実際の Google ログインには OAuth クライアントの設定(README 参照)が必要。未着手: 常設NGルール、カレンダー free/busy 取り込み、確定のカレンダー出力、通知。
 
-## ブランチ運用
+## 開発フロー(必須ルール)
 
-開発は `develop` ブランチで行い、develop 環境(`wrangler.jsonc` の `env.develop`、`npm run deploy:dev`)で動作確認してから `main` に取り込んで本番デプロイする。develop の URL は知っている人がアクセスできて良い扱い。リモートは git@github.com:ShinoharaTa/makuai.git。
+1. 作業は必ず GitHub Issue に起票してから始める(なければ先に作る)
+2. ブランチは `develop` から切る。命名は `feat/<issue番号>-<内容>` / `fix/<issue番号>-<内容>`(例: `feat/1-ogp-favicon`)
+3. PR は **develop に対して**出す。`develop` / `main` への直接 push はしない
+4. develop 環境(https://makuai-develop.shino3.workers.dev、`npm run deploy:dev`)で動作確認してから、本番リリース時に develop → main の PR を出す
+5. develop の URL は知っている人がアクセスできて良い扱い
+
+リモートは git@github.com:ShinoharaTa/makuai.git。
 
 ## スタック(確定)
 
