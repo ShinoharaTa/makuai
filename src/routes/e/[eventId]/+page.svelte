@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
 	import { page } from '$app/state';
+	import { formatSlot } from '$lib/format';
 
 	let { data, form } = $props();
 
@@ -14,15 +15,6 @@
 		{ value: 'maybe', symbol: '△', label: 'たぶん' },
 		{ value: 'no', symbol: '×', label: '無理' }
 	] as const;
-
-	const weekdays = ['日', '月', '火', '水', '木', '金', '土'];
-
-	function formatSlot(slot: { date: string; startTime: string; label: string }): string {
-		const [y, m, d] = slot.date.split('-').map(Number);
-		const wd = weekdays[new Date(y, m - 1, d).getDay()];
-		const base = `${m}/${d}(${wd}) ${slot.startTime}`;
-		return slot.label ? `${base} ${slot.label}` : base;
-	}
 
 	const ogDescription = $derived(
 		data.authed
