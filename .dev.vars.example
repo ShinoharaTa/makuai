@@ -1,0 +1,8 @@
+# ローカル開発用。コピーして .dev.vars を作成する(.dev.vars は gitignore 済み)
+# Google Cloud Console > APIs & Services > Credentials で OAuth クライアント(Web)を作成し、
+# 承認済みリダイレクト URI に http://localhost:5173/api/auth/callback/google を登録する。
+GOOGLE_CLIENT_ID=your-client-id.apps.googleusercontent.com
+GOOGLE_CLIENT_SECRET=your-client-secret
+# openssl rand -base64 32 などで生成
+BETTER_AUTH_SECRET=change-me
+BETTER_AUTH_URL=http://localhost:5173

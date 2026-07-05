@@ -1,7 +1,23 @@
+# OS
 .DS_Store
+Thumbs.db
+
+# Dependencies
 node_modules/
+
+# Output
+.output
+.wrangler
+/.svelte-kit
+/build
+dist/
+
+# Env / secrets
 .env
 .env.*
 !.env.example
-dist/
-build/
+.dev.vars
+
+# Vite
+vite.config.js.timestamp-*
+vite.config.ts.timestamp-*
