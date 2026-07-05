@@ -175,6 +175,20 @@
 	</div>
 </form>
 
+<h2 class="section-title danger-title">危険な操作</h2>
+<div class="card danger-card">
+	<p class="muted">この調整を削除すると、候補・参加者・回答もすべて消えます(元に戻せません)。</p>
+	<form
+		method="POST"
+		action="?/deleteEvent"
+		use:enhance={withConfirm(
+			`「${data.event.title}」を削除します。候補・参加者・回答もすべて消え、元に戻せません。よろしいですか?`
+		)}
+	>
+		<button class="btn btn-danger">この調整を削除する</button>
+	</form>
+</div>
+
 <style>
 	.event-head {
 		display: flex;
@@ -280,6 +294,27 @@
 		gap: 0.3rem;
 		font-weight: 600;
 		width: 100%;
+	}
+
+	.danger-title {
+		color: var(--accent-soft);
+	}
+
+	.danger-card {
+		border-color: color-mix(in srgb, var(--accent) 50%, var(--border));
+		display: grid;
+		gap: 0.6rem;
+		justify-items: start;
+	}
+
+	:global(.btn-danger) {
+		border-color: var(--accent);
+		color: var(--accent-soft);
+		background: transparent;
+	}
+
+	:global(.btn-danger:hover) {
+		background: color-mix(in srgb, var(--accent) 15%, transparent);
 	}
 
 	@media (max-width: 560px) {

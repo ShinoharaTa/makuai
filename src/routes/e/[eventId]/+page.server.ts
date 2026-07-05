@@ -42,6 +42,7 @@ export const load: PageServerLoad = async ({ locals, params }) => {
 
 	return {
 		authed: true as const,
+		myDisplayName: myParticipant?.hasCustomName ? myParticipant.name : '',
 		event: {
 			id: event.id,
 			title: event.title,
@@ -73,18 +74,27 @@ export const actions: Actions = {
 		const form = await request.formData();
 		const now = new Date();
 
+		const displayNameRaw = form.get('display_name');
+		const displayName = displayNameRaw == null ? undefined : String(displayNameRaw).trim().slice(0, 30);
+
 		const marksToSave: { slotId: string; mark: Mark }[] = [];
+		const marksToClear: string[] = [];
 		for (const slot of slotRows) {
 			const raw = form.get(`slot_${slot.id}`);
 			if (raw == null || raw === '') continue;
-			if (slot.isCancelled) continue; // 中止回への回答は黙って無視
-			const mark = String(raw) as Mark;
+			if (slot.isCancelled) continue; // 中止候補への回答は黙って無視
+			const value = String(raw);
+			if (value === 'clear') {
+				marksToClear.push(slot.id);
+				continue;
+			}
+			const mark = value as Mark;
 			if (!MARKS.includes(mark)) {
 				return fail(400, { message: '回答の値が正しくありません' });
 			}
 			marksToSave.push({ slotId: slot.id, mark });
 		}
-		if (marksToSave.length === 0) {
+		if (marksToSave.length === 0 && marksToClear.length === 0 && displayName === undefined) {
 			return fail(400, { message: 'どれか1つは回答してください' });
 		}
 
@@ -97,24 +107,59 @@ export const actions: Actions = {
 		if (!me) {
 			await db
 				.insert(participants)
-				.values({ id: nanoid(21), eventId: event.id, userId: locals.user!.id, createdAt: now })
+				.values({
+					id: nanoid(21),
+					eventId: event.id,
+					userId: locals.user!.id,
+					displayName: displayName || null,
+					createdAt: now
+				})
 				.onConflictDoNothing();
 			me = await findMe();
 			if (!me) return fail(500, { message: '参加登録に失敗しました。もう一度お試しください' });
+		} else if (displayName !== undefined && (displayName || null) !== me.displayName) {
+			await db
+				.update(participants)
+				.set({ displayName: displayName || null })
+				.where(eq(participants.id, me.id));
 		}
 		const participantId = me.id;
 
-		const upserts = marksToSave.map(({ slotId, mark }) =>
-			db
-				.insert(answers)
-				.values({ id: nanoid(21), participantId, slotId, mark, updatedAt: now })
-				.onConflictDoUpdate({
-					target: [answers.participantId, answers.slotId],
-					set: { mark, updatedAt: now }
-				})
-		);
-		await db.batch([upserts[0], ...upserts.slice(1)]);
+		const statements = [
+			...marksToSave.map(({ slotId, mark }) =>
+				db
+					.insert(answers)
+					.values({ id: nanoid(21), participantId, slotId, mark, updatedAt: now })
+					.onConflictDoUpdate({
+						target: [answers.participantId, answers.slotId],
+						set: { mark, updatedAt: now }
+					})
+			),
+			// 「未回答に戻す」は行ごと削除(未回答と同じ状態に戻す)
+			...marksToClear.map((slotId) =>
+				db
+					.delete(answers)
+					.where(and(eq(answers.participantId, participantId), eq(answers.slotId, slotId)))
+			)
+		];
+		if (statements.length > 0) {
+			await db.batch([statements[0], ...statements.slice(1)]);
+		}
 
 		return { success: true };
+	},
+
+	// イベントから退出(participant 削除。回答も cascade で消える)。
+	// 自分のデータの撤回なのでステータスに関わらずいつでも可。
+	leave: async ({ locals, params, url }) => {
+		if (!locals.user) redirectToLogin(url.pathname);
+		const db = locals.db;
+		const event = await loadEventOr404(db, params.eventId);
+		const me = await db.query.participants.findFirst({
+			where: and(eq(participants.eventId, event.id), eq(participants.userId, locals.user!.id))
+		});
+		if (!me) return fail(409, { message: 'この調整には参加していません' });
+		await db.delete(participants).where(eq(participants.id, me.id));
+		return { success: true, left: true };
 	}
 };

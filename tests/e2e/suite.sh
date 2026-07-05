@@ -192,5 +192,54 @@ check "進行中に🎫確定チップ" "yes" "$(echo "$ADASH" | grep -q 'chip-c
 check "参加予定は出ない(○回答なし)" "yes" "$(echo "$ADASH" | grep -q '参加予定' && echo no || echo yes)"
 
 echo
+echo "=== 参加者操作編(#6) ==="
+
+echo "== 17. 回答の取り消し(未回答に戻す)"
+CNT_BEFORE=$(d1_json "SELECT COUNT(*) c FROM answers a JOIN participants p ON a.participant_id=p.id WHERE p.event_id='$EID' AND p.user_id='u_bob'" "r[0].c")
+CODE=$(curl -s -o /dev/null -w '%{http_code}' -X POST "$BASE/e/$EID?/answer" \
+  -H "Cookie: $BOB" -H "$ORIGIN" -H "$ACCEPT" --data-urlencode "slot_$S1=clear")
+check "clear の POST が成功" "200" "$CODE"
+CNT_AFTER=$(d1_json "SELECT COUNT(*) c FROM answers a JOIN participants p ON a.participant_id=p.id WHERE p.event_id='$EID' AND p.user_id='u_bob'" "r[0].c")
+check "回答行が1減る" "$((CNT_BEFORE - 1))" "$CNT_AFTER"
+
+echo "== 18. イベントごとの表示名"
+CODE=$(curl -s -o /dev/null -w '%{http_code}' -X POST "$BASE/e/$EID?/answer" \
+  -H "Cookie: $BOB" -H "$ORIGIN" -H "$ACCEPT" \
+  --data-urlencode "display_name=遠征のボブ" --data-urlencode "slot_$S2=maybe")
+check "表示名つき回答が成功" "200" "$CODE"
+BODY=$(curl -s "$BASE/e/$EID" -H "Cookie: $ALICE")
+check "マトリクスに表示名が出る" "yes" "$(echo "$BODY" | grep -q '遠征のボブ' && echo yes || echo no)"
+CODE=$(curl -s -o /dev/null -w '%{http_code}' -X POST "$BASE/e/$EID?/answer" \
+  -H "Cookie: $BOB" -H "$ORIGIN" -H "$ACCEPT" \
+  --data-urlencode "display_name=" --data-urlencode "slot_$S2=maybe")
+check "空欄で元の名前に戻せる" "200" "$CODE"
+BODY=$(curl -s "$BASE/e/$EID" -H "Cookie: $ALICE")
+check "表示名がリセットされる" "yes" "$(echo "$BODY" | grep -q '遠征のボブ' && echo no || echo yes)"
+
+echo "== 19. イベントから退出"
+CODE=$(curl -s -o /dev/null -w '%{http_code}' -X POST "$BASE/e/$EID?/leave" \
+  -H "Cookie: $CAROL" -H "$ORIGIN" -H "$ACCEPT" --data "")
+check "退出 POST が成功" "200" "$CODE"
+CNT=$(d1_json "SELECT COUNT(*) c FROM participants WHERE event_id='$EID' AND user_id='u_carol'" "r[0].c")
+check "participant 行が消える" "0" "$CNT"
+CNT=$(d1_json "SELECT COUNT(*) c FROM answers a WHERE a.participant_id NOT IN (SELECT id FROM participants)" "r[0].c")
+check "回答の孤児行がない(cascade)" "0" "$CNT"
+CODE=$(curl -s -o /dev/null -w '%{http_code}' -X POST "$BASE/e/$EID?/leave" \
+  -H "Cookie: $CAROL" -H "$ORIGIN" -H "$ACCEPT" --data "")
+check "未参加での退出は 409" "409" "$CODE"
+
+echo "== 20. イベント削除"
+CODE=$(curl -s -o /dev/null -w '%{http_code}' -X POST "$BASE/e/$EID/manage?/deleteEvent" \
+  -H "Cookie: $BOB" -H "$ORIGIN" -H "$ACCEPT" --data "")
+check "非主催者の削除は 403" "403" "$CODE"
+CODE=$(curl -s -o /dev/null -w '%{http_code}' -X POST "$BASE/e/$EID/manage?/deleteEvent" \
+  -H "Cookie: $ALICE" -H "$ORIGIN" -H "$ACCEPT" --data "")
+check "主催者の削除は 303 リダイレクト" "303" "$CODE"
+CODE=$(curl -s -o /dev/null -w '%{http_code}' "$BASE/e/$EID" -H "Cookie: $ALICE")
+check "削除後の GET は 404" "404" "$CODE"
+CNT=$(d1_json "SELECT (SELECT COUNT(*) FROM slots WHERE event_id='$EID') + (SELECT COUNT(*) FROM participants WHERE event_id='$EID') c" "r[0].c")
+check "候補・参加者も cascade で消える" "0" "$CNT"
+
+echo
 echo "RESULT: PASS=$PASS FAIL=$FAIL"
 [ "$FAIL" -eq 0 ]

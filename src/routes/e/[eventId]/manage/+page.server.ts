@@ -1,4 +1,4 @@
-import { fail } from '@sveltejs/kit';
+import { fail, redirect } from '@sveltejs/kit';
 import { and, eq } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import { loadEventDetail } from '$lib/server/events';
@@ -171,5 +171,12 @@ export const actions: Actions = {
 			.set({ isCancelled: false })
 			.where(and(eq(slots.id, slotId), eq(slots.eventId, event.id)));
 		return { success: true };
+	},
+
+	// イベント削除。候補・参加者・回答も cascade で消える(復元不可)
+	deleteEvent: async (e) => {
+		const event = await loadOwnedEvent(e);
+		await e.locals.db.delete(events).where(eq(events.id, event.id));
+		redirect(303, '/');
 	}
 };

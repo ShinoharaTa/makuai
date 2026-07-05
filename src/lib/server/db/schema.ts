@@ -63,6 +63,8 @@ export const participants = sqliteTable(
 		userId: text('user_id')
 			.notNull()
 			.references(() => user.id),
+		// この調整内だけの表示名(NULL なら user.name を表示)
+		displayName: text('display_name'),
 		createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull()
 	},
 	(table) => [
