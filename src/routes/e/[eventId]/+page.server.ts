@@ -1,5 +1,5 @@
 import { fail } from '@sveltejs/kit';
-import { and, eq } from 'drizzle-orm';
+import { and, count, eq } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import { loadEventDetail } from '$lib/server/events';
 import { answerBlockedReason, loadEventOr404 } from '$lib/server/guards';
@@ -7,17 +7,41 @@ import { redirectToLogin } from '$lib/server/redirect';
 import { answers, participants, slots, MARKS, type Mark } from '$lib/server/db/schema';
 import type { Actions, PageServerLoad } from './$types';
 
-export const load: PageServerLoad = async ({ locals, params, url }) => {
-	if (!locals.user) redirectToLogin(url.pathname);
+export const load: PageServerLoad = async ({ locals, params }) => {
 	const db = locals.db;
-
 	const event = await loadEventOr404(db, params.eventId);
+
+	// 未ログインでもティーザー(タイトル・会場・件数)と OGP は見せる。
+	// 回答状況・メンバー・メモはログイン後のみ。
+	if (!locals.user) {
+		const [{ value: slotCount }] = await db
+			.select({ value: count() })
+			.from(slots)
+			.where(and(eq(slots.eventId, event.id), eq(slots.isCancelled, false)));
+		const [{ value: participantCount }] = await db
+			.select({ value: count() })
+			.from(participants)
+			.where(eq(participants.eventId, event.id));
+		return {
+			authed: false as const,
+			event: {
+				id: event.id,
+				title: event.title,
+				venue: event.venue,
+				status: event.status
+			},
+			slotCount,
+			participantCount
+		};
+	}
+
 	const detail = await loadEventDetail(db, params.eventId);
 
 	const myParticipant = detail.participants.find((p) => p.userId === locals.user!.id);
 	const myMarks: Record<string, Mark> = myParticipant ? (detail.marks[myParticipant.id] ?? {}) : {};
 
 	return {
+		authed: true as const,
 		event: {
 			id: event.id,
 			title: event.title,

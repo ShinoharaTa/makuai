@@ -14,7 +14,6 @@
 
 <svelte:head>
 	<link rel="icon" href={favicon} />
-	<title>幕間 makuai — みんなでどの回に行く?</title>
 </svelte:head>
 
 <div class="shell">

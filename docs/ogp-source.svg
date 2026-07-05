@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
+	<rect width="1200" height="630" fill="#16121c"/>
+	<!-- 左右の緞帳 -->
+	<path d="M0 0 h150 q-50 160 -30 320 q15 170 60 310 h-180 z" fill="#e8555f"/>
+	<path d="M60 0 q15 300 40 630 h-30 q-35 -330 -40 -630 z" fill="#c73e49"/>
+	<path d="M1200 0 h-150 q50 160 30 320 q-15 170 -60 310 h180 z" fill="#e8555f"/>
+	<path d="M1140 0 q-15 300 -40 630 h30 q35 -330 40 -630 z" fill="#c73e49"/>
+	<!-- 上部の飾り幕 -->
+	<path d="M0 0 h1200 v70 q-75 45 -150 0 q-75 45 -150 0 q-75 45 -150 0 q-75 45 -150 0 q-75 45 -150 0 q-75 45 -150 0 q-75 45 -150 0 q-75 45 -150 0 z" fill="#c73e49"/>
+	<!-- 舞台の灯り -->
+	<circle cx="600" cy="360" r="230" fill="#e5b567" opacity="0.12"/>
+	<!-- タイトル -->
+	<text x="600" y="330" text-anchor="middle" font-family="Hiragino Mincho ProN, Hiragino Kaku Gothic ProN, sans-serif" font-size="150" font-weight="700" fill="#f2edf7" letter-spacing="14">幕間</text>
+	<text x="600" y="400" text-anchor="middle" font-family="Hiragino Kaku Gothic ProN, sans-serif" font-size="42" font-weight="600" fill="#ff8f96" letter-spacing="10">makuai</text>
+	<!-- タグライン -->
+	<text x="600" y="480" text-anchor="middle" font-family="Hiragino Kaku Gothic ProN, sans-serif" font-size="34" fill="#a99cbd">その公演、みんなでどの回に行く?</text>
+	<!-- ○△× -->
+	<text x="600" y="560" text-anchor="middle" font-family="Hiragino Kaku Gothic ProN, sans-serif" font-size="40" font-weight="700">
+		<tspan fill="#4ecfa5">○</tspan><tspan fill="#a99cbd" dx="8">・</tspan><tspan fill="#e5b567" dx="8">△</tspan><tspan fill="#a99cbd" dx="8">・</tspan><tspan fill="#7d7191" dx="8">×</tspan>
+	</text>
+</svg>
