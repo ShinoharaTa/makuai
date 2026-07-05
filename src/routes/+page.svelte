@@ -6,7 +6,7 @@
 
 	let { data } = $props();
 
-	const statusLabel = { open: '募集中', suspended: '募集停止', closed: '募集終了' } as const;
+	const statusLabel = { open: '募集OK', suspended: '募集停止' } as const;
 	const markChoices = [
 		{ value: 'yes', symbol: '○', label: '行ける' },
 		{ value: 'maybe', symbol: '△', label: 'たぶん' },
@@ -18,10 +18,10 @@
 	let submittingId = $state<string | null>(null);
 	let quickErrors = $state<Record<string, string>>({});
 
-	// 参加予定: 確定済みで自分が○だった回
+	// 参加予定: 確定済み(確定日が今日以降)で自分が○の回
 	const upcoming = $derived(
 		(data.dashboard ?? [])
-			.filter((ev) => ev.status === 'closed' && ev.confirmed && ev.confirmed.myMark === 'yes')
+			.filter((ev) => ev.confirmed && !ev.confirmed.isPast && ev.confirmed.myMark === 'yes')
 			.sort((a, b) =>
 				`${a.confirmed!.date} ${a.confirmed!.startTime}`.localeCompare(
 					`${b.confirmed!.date} ${b.confirmed!.startTime}`
@@ -29,23 +29,26 @@
 			)
 	);
 
-	// 進行中: 未回答があるものを先頭に
+	// 過去のイベント: 確定日を過ぎたもの
+	const archived = $derived(
+		(data.dashboard ?? [])
+			.filter((ev) => ev.confirmed?.isPast)
+			.sort((a, b) => `${b.confirmed!.date}`.localeCompare(a.confirmed!.date))
+	);
+
+	// 進行中: 上の2つ以外。未回答があるものを先頭に
 	const active = $derived(
 		(data.dashboard ?? [])
-			.filter((ev) => ev.status !== 'closed')
+			.filter(
+				(ev) =>
+					!ev.confirmed?.isPast && !(ev.confirmed && !ev.confirmed.isPast && ev.confirmed.myMark === 'yes')
+			)
 			.sort((a, b) => {
 				const aNeeds = a.status === 'open' && a.unansweredCount > 0 ? 1 : 0;
 				const bNeeds = b.status === 'open' && b.unansweredCount > 0 ? 1 : 0;
 				if (aNeeds !== bNeeds) return bNeeds - aNeeds;
 				return b.createdAt - a.createdAt;
 			})
-	);
-
-	// 終演: 上の「参加予定」に出ないもの
-	const archived = $derived(
-		(data.dashboard ?? [])
-			.filter((ev) => ev.status === 'closed' && !(ev.confirmed && ev.confirmed.myMark === 'yes'))
-			.sort((a, b) => b.createdAt - a.createdAt)
 	);
 </script>
 
@@ -100,6 +103,9 @@
 					<a href="/e/{ev.id}" class="event-card">
 						<span class="event-title">{ev.title}</span>
 						{#if ev.venue}<span class="muted">@ {ev.venue}</span>{/if}
+						{#if ev.confirmed}
+							<span class="chip chip-confirmed">🎫 {formatSlot(ev.confirmed)}</span>
+						{/if}
 						{#if ev.isOwner}<span class="chip chip-owner">主催</span>{/if}
 						{#if needsAnswer}
 							<span class="chip chip-unanswered">未回答 {ev.unansweredCount}</span>
@@ -164,16 +170,14 @@
 
 	{#if archived.length > 0}
 		<details class="archive">
-			<summary class="section-title">終演した調整({archived.length})</summary>
+			<summary class="section-title">過去のイベント({archived.length})</summary>
 			<ul class="event-list">
 				{#each archived as ev (ev.id)}
 					<li>
 						<a href="/e/{ev.id}" class="card event-card archived-card">
 							<span class="event-title">{ev.title}</span>
 							{#if ev.confirmed}
-								<span class="muted">🎫 {formatSlot(ev.confirmed)} に確定</span>
-							{:else}
-								<span class="muted">確定なしで終了</span>
+								<span class="muted">🎫 {formatSlot(ev.confirmed)}</span>
 							{/if}
 							{#if ev.isOwner}<span class="chip chip-owner">主催</span>{/if}
 						</a>
@@ -269,6 +273,11 @@
 	.chip-owner {
 		background: color-mix(in srgb, var(--accent) 16%, transparent);
 		color: var(--accent-soft);
+	}
+
+	.chip-confirmed {
+		background: color-mix(in srgb, var(--gold) 16%, transparent);
+		color: var(--gold);
 	}
 
 	.chip-unanswered {

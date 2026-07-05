@@ -23,7 +23,19 @@ export interface DashboardEvent {
 	/** activeSlots のうち未回答の数 */
 	unansweredCount: number;
 	/** 確定スロット(確定済みイベントのみ)と、その回への自分の回答 */
-	confirmed: { date: string; startTime: string; label: string; myMark: Mark | null } | null;
+	confirmed: {
+		date: string;
+		startTime: string;
+		label: string;
+		myMark: Mark | null;
+		/** 確定日が過去か(JST 基準)。過去ならアーカイブ扱い */
+		isPast: boolean;
+	} | null;
+}
+
+// JST での今日の日付 'YYYY-MM-DD'
+function todayJst(): string {
+	return new Date(Date.now() + 9 * 3600 * 1000).toISOString().slice(0, 10);
 }
 
 // 自分に関係する全調整のサマリ。
@@ -75,6 +87,7 @@ export async function loadDashboard(db: Database, userId: string): Promise<Dashb
 		slotsByEvent.set(slot.eventId, list);
 	}
 
+	const today = todayJst();
 	const result: DashboardEvent[] = [];
 	for (const { event, participantId, isOwner } of byId.values()) {
 		const eventSlots = (slotsByEvent.get(event.id) ?? []).sort((a, b) =>
@@ -95,7 +108,8 @@ export async function loadDashboard(db: Database, userId: string): Promise<Dashb
 					date: slot.date,
 					startTime: slot.startTime,
 					label: slot.label,
-					myMark: myMarks[slot.id] ?? null
+					myMark: myMarks[slot.id] ?? null,
+					isPast: slot.date < today
 				};
 			}
 		}

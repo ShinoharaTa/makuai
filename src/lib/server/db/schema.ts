@@ -3,9 +3,10 @@ import { user } from './auth-schema';
 
 export * from './auth-schema';
 
-// イベント(調整)ステータス
-// open: 募集中 / suspended: 募集停止(日時変更・候補中止の作業中) / closed: 募集終了(終端)
-export const EVENT_STATUSES = ['open', 'suspended', 'closed'] as const;
+// イベント(調整)ステータス。open ⇄ suspended の2値トグルで、終端状態は持たない。
+// open: 募集OK / suspended: 募集停止(回答を一時的に止める。日時変更はこの状態でのみ可)
+// 日付の確定(confirmedSlotId)はステータスとは独立した属性。
+export const EVENT_STATUSES = ['open', 'suspended'] as const;
 export type EventStatus = (typeof EVENT_STATUSES)[number];
 
 // 回答: ○ / △ / ×
@@ -24,7 +25,7 @@ export const events = sqliteTable(
 		venue: text('venue'),
 		memo: text('memo'),
 		status: text('status', { enum: EVENT_STATUSES }).notNull().default('open'),
-		// 確定スロット。closed かつ NULL は「確定せず終了」
+		// 確定スロット(NULL = 未確定)。確定してもステータスは変わらず、変更・解除も可能
 		confirmedSlotId: text('confirmed_slot_id'),
 		createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull(),
 		updatedAt: integer('updated_at', { mode: 'timestamp_ms' }).notNull()

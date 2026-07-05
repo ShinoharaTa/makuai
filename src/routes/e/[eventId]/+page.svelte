@@ -8,7 +8,7 @@
 	let submitting = $state(false);
 	let copied = $state(false);
 
-	const statusLabel = { open: '募集中', suspended: '募集停止', closed: '募集終了' } as const;
+	const statusLabel = { open: '募集OK', suspended: '募集停止' } as const;
 	const markSymbol = { yes: '○', maybe: '△', no: '×' } as const;
 	const markChoices = [
 		{ value: 'yes', symbol: '○', label: '行ける' },
@@ -100,10 +100,9 @@
 		<div class="confirmed-banner">
 			🎫 <strong>{formatSlot(confirmedSlot)}</strong> に決定!当日をお楽しみに。
 		</div>
-	{:else if data.event.status === 'suspended'}
-		<div class="notice-banner">🎭 ただいま幕間です。候補日の調整中のため、回答は一時お休み。</div>
-	{:else if data.event.status === 'closed'}
-		<div class="notice-banner">この調整は終演しました(募集終了)。</div>
+	{/if}
+	{#if data.event.status === 'suspended'}
+		<div class="notice-banner">⏸ ただいま募集停止中。候補の調整が終わるまで、回答は一時お休みです。</div>
 	{/if}
 
 	<div class="toolbar">
@@ -150,7 +149,7 @@
 						<td class="slot-col">
 							{#if slot.id === data.event.confirmedSlotId}🎫{/if}
 							{formatSlot(slot)}
-							{#if slot.isCancelled}<span class="chip chip-closed">中止</span>{/if}
+							{#if slot.isCancelled}<span class="chip chip-cancelled">中止</span>{/if}
 						</td>
 						<td class="count-col">
 							<span class="count-yes">○{counts.yes}</span>

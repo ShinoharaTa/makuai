@@ -1,13 +1,10 @@
 import { fail } from '@sveltejs/kit';
-import { and, eq, ne } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import { loadEventDetail } from '$lib/server/events';
 import {
-	canTransition,
 	loadEventOr404,
 	requireOwner,
-	slotAddBlockedReason,
-	slotCancelBlockedReason,
 	slotEditBlockedReason,
 	type EventRow
 } from '$lib/server/guards';
@@ -42,74 +39,74 @@ function validateSlotInput(form: FormData): { date: string; startTime: string; l
 	const date = String(form.get('date') ?? '').trim();
 	const startTime = String(form.get('start_time') ?? '').trim();
 	const label = String(form.get('label') ?? '').trim();
-	if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return '公演日が正しくありません';
-	if (!/^\d{2}:\d{2}$/.test(startTime)) return '開演時間が正しくありません';
+	if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return '日付が正しくありません';
+	if (!/^\d{2}:\d{2}$/.test(startTime)) return '開始時間が正しくありません';
 	if (label.length > 30) return 'ラベルが長すぎます';
 	return { date, startTime, label };
 }
 
-// ステータス遷移は「現在のステータス」を WHERE 条件に含めて更新し、
-// 同時操作で遷移表を飛び越えないようにする
-async function transition(e: Pick<RequestEvent, 'locals' | 'params' | 'url'>, to: EventStatus) {
+// open ⇄ suspended のトグル。現在値を WHERE に含め、同時操作での二重適用を防ぐ
+async function setStatus(e: Pick<RequestEvent, 'locals' | 'params' | 'url'>, from: EventStatus, to: EventStatus) {
 	const event = await loadOwnedEvent(e);
-	if (!canTransition(event.status, to)) {
-		return fail(409, { message: `「${event.status}」から「${to}」には変更できません` });
+	if (event.status !== from) {
+		return fail(409, { message: `すでに「${event.status === 'open' ? '募集OK' : '募集停止'}」になっています` });
 	}
 	await e.locals.db
 		.update(events)
 		.set({ status: to, updatedAt: new Date() })
-		.where(and(eq(events.id, event.id), eq(events.status, event.status)));
+		.where(and(eq(events.id, event.id), eq(events.status, from)));
 	return { success: true };
 }
 
 export const actions: Actions = {
-	suspend: (e) => transition(e, 'suspended'),
-	reopen: (e) => transition(e, 'open'),
-	close: (e) => transition(e, 'closed'),
+	suspend: (e) => setStatus(e, 'open', 'suspended'),
+	reopen: (e) => setStatus(e, 'suspended', 'open'),
 
+	// 確定はステータスと独立。確定しても回答は止まらず、変更・解除も可能
 	confirm: async (e) => {
 		const event = await loadOwnedEvent(e);
-		if (!canTransition(event.status, 'closed')) {
-			return fail(409, { message: 'この調整はすでに募集終了しています' });
-		}
 		const form = await e.request.formData();
 		const slotId = String(form.get('slot_id') ?? '');
 		const slot = await e.locals.db.query.slots.findFirst({
 			where: and(eq(slots.id, slotId), eq(slots.eventId, event.id))
 		});
-		if (!slot) return fail(400, { message: '確定する回を選んでください' });
-		if (slot.isCancelled) return fail(409, { message: '中止した回は確定できません' });
+		if (!slot) return fail(400, { message: '確定する候補を選んでください' });
+		if (slot.isCancelled) return fail(409, { message: '中止した候補は確定できません' });
 
 		await e.locals.db
 			.update(events)
-			.set({ status: 'closed', confirmedSlotId: slot.id, updatedAt: new Date() })
-			.where(and(eq(events.id, event.id), ne(events.status, 'closed')));
+			.set({ confirmedSlotId: slot.id, updatedAt: new Date() })
+			.where(eq(events.id, event.id));
+		return { success: true };
+	},
+
+	unconfirm: async (e) => {
+		const event = await loadOwnedEvent(e);
+		if (!event.confirmedSlotId) return fail(409, { message: 'まだ確定していません' });
+		await e.locals.db
+			.update(events)
+			.set({ confirmedSlotId: null, updatedAt: new Date() })
+			.where(eq(events.id, event.id));
 		return { success: true };
 	},
 
 	updateInfo: async (e) => {
 		const event = await loadOwnedEvent(e);
-		if (event.status === 'closed') {
-			return fail(409, { message: '募集終了した調整は編集できません' });
-		}
 		const form = await e.request.formData();
 		const title = String(form.get('title') ?? '').trim();
 		const venue = String(form.get('venue') ?? '').trim();
 		const memo = String(form.get('memo') ?? '').trim();
-		if (!title) return fail(400, { message: '公演タイトルを入力してください' });
+		if (!title) return fail(400, { message: 'タイトルを入力してください' });
 
 		await e.locals.db
 			.update(events)
 			.set({ title, venue: venue || null, memo: memo || null, updatedAt: new Date() })
-			.where(and(eq(events.id, event.id), ne(events.status, 'closed')));
+			.where(eq(events.id, event.id));
 		return { success: true };
 	},
 
 	addSlot: async (e) => {
 		const event = await loadOwnedEvent(e);
-		const blocked = slotAddBlockedReason(event);
-		if (blocked) return fail(409, { message: blocked });
-
 		const form = await e.request.formData();
 		const input = validateSlotInput(form);
 		if (typeof input === 'string') return fail(400, { message: input });
@@ -152,11 +149,12 @@ export const actions: Actions = {
 
 	cancelSlot: async (e) => {
 		const event = await loadOwnedEvent(e);
-		const blocked = slotCancelBlockedReason(event);
-		if (blocked) return fail(409, { message: blocked });
-
 		const form = await e.request.formData();
 		const slotId = String(form.get('slot_id') ?? '');
+		// 確定中の候補を中止すると表示が矛盾するため、先に確定解除を求める
+		if (event.confirmedSlotId === slotId) {
+			return fail(409, { message: 'この候補は確定中です。先に確定を解除してください' });
+		}
 		await e.locals.db
 			.update(slots)
 			.set({ isCancelled: true })
@@ -166,9 +164,6 @@ export const actions: Actions = {
 
 	restoreSlot: async (e) => {
 		const event = await loadOwnedEvent(e);
-		const blocked = slotCancelBlockedReason(event);
-		if (blocked) return fail(409, { message: blocked });
-
 		const form = await e.request.formData();
 		const slotId = String(form.get('slot_id') ?? '');
 		await e.locals.db
