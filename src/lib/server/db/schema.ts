@@ -40,10 +40,10 @@ export const slots = sqliteTable(
 		eventId: text('event_id')
 			.notNull()
 			.references(() => events.id, { onDelete: 'cascade' }),
-		// 国内公演前提の JST ナイーブ表記
+		// 国内イベント前提の JST ナイーブ表記
 		date: text('date').notNull(), // 'YYYY-MM-DD'
 		startTime: text('start_time').notNull(), // 'HH:MM'
-		label: text('label').notNull().default(''), // 例: '昼公演'
+		label: text('label').notNull().default(''), // 例: '昼の部'
 		isCancelled: integer('is_cancelled', { mode: 'boolean' }).notNull().default(false),
 		createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull()
 	},

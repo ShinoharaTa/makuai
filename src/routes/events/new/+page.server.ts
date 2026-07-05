@@ -23,7 +23,7 @@ export const actions: Actions = {
 		const labels = form.getAll('slot_label').map(String);
 
 		if (!title) {
-			return fail(400, { message: '公演タイトルを入力してください' });
+			return fail(400, { message: 'タイトルを入力してください' });
 		}
 
 		const slotInputs: { date: string; startTime: string; label: string }[] = [];
@@ -33,16 +33,16 @@ export const actions: Actions = {
 			const label = (labels[i] ?? '').trim();
 			if (!date && !startTime) continue; // 空行はスキップ
 			if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
-				return fail(400, { message: `候補 ${i + 1} の公演日が正しくありません` });
+				return fail(400, { message: `候補 ${i + 1} の日付が正しくありません` });
 			}
 			if (!startTime || !/^\d{2}:\d{2}$/.test(startTime)) {
-				return fail(400, { message: `候補 ${i + 1} の開演時間が正しくありません` });
+				return fail(400, { message: `候補 ${i + 1} の開始時間が正しくありません` });
 			}
 			slotInputs.push({ date, startTime, label });
 		}
 
 		if (slotInputs.length === 0) {
-			return fail(400, { message: '公演の候補(日付と開演時間)を1つ以上入れてください' });
+			return fail(400, { message: '候補の日時(日付と開始時間)を1つ以上入れてください' });
 		}
 
 		const seen = new Set<string>();
