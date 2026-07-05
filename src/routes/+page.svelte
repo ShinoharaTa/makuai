@@ -13,7 +13,7 @@
 		{ value: 'no', symbol: '×', label: '無理' }
 	] as const;
 	const description =
-		'幕間(まくあい)は観劇・ライブ・推し活のための日程調整。公演の回ごとに、誰が行けるかがひと目でわかります。';
+		'幕間(まくあい)は、ライブ・観劇からオフ会・旅行まで使えるみんなの日程調整。候補の日時ごとに、誰が行けるかがひと目でわかります。';
 
 	let submittingId = $state<string | null>(null);
 	let quickErrors = $state<Record<string, string>>({});
@@ -53,11 +53,11 @@
 </script>
 
 <svelte:head>
-	<title>幕間 makuai — みんなでどの回に行く?</title>
+	<title>幕間 makuai — みんなでどの日に行く?</title>
 	<meta name="description" content={description} />
 	<meta property="og:type" content="website" />
 	<meta property="og:site_name" content="幕間 makuai" />
-	<meta property="og:title" content="幕間 makuai — みんなでどの回に行く?" />
+	<meta property="og:title" content="幕間 makuai — みんなでどの日に行く?" />
 	<meta property="og:description" content={description} />
 	<meta property="og:url" content={page.url.origin + '/'} />
 	<meta property="og:image" content={page.url.origin + '/ogp.png'} />
@@ -66,10 +66,10 @@
 
 {#if !data.user || !data.dashboard}
 	<section class="hero">
-		<h1>その公演、<br />みんなでどの回に行く?</h1>
+		<h1>その予定、<br />みんなでどの日に行く?</h1>
 		<p class="muted">
-			幕間(まくあい)は、観劇・ライブ・推し活のための日程調整。<br />
-			公演の回ごとに「誰が行けるか」がひと目でわかります。
+			幕間(まくあい)は、ライブ・観劇からオフ会・旅行まで使える日程調整。<br />
+			候補の日時ごとに「誰が行けるか」がひと目でわかります。
 		</p>
 		<a href="/login" class="btn btn-primary">Google ではじめる</a>
 	</section>

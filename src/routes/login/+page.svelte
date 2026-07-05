@@ -21,7 +21,7 @@
 
 <section class="login">
 	<div class="card login-card">
-		<h1>開演前にログイン</h1>
+		<h1>はじめる前にログイン</h1>
 		<p class="muted">回答や調整の作成には Google アカウントを使います。</p>
 		{#if errorMessage}
 			<p class="error-note">{errorMessage}</p>
