@@ -241,5 +241,49 @@ CNT=$(d1_json "SELECT (SELECT COUNT(*) FROM slots WHERE event_id='$EID') + (SELE
 check "候補・参加者も cascade で消える" "0" "$CNT"
 
 echo
+echo "=== NGルール編(#3) ==="
+
+echo "== 21. ルールの登録と一覧"
+CODE=$(curl -s -o /dev/null -w '%{http_code}' -X POST "$BASE/settings/rules?/add" \
+  -H "Cookie: $BOB" -H "$ORIGIN" -H "$ACCEPT" \
+  --data-urlencode 'day=1' --data-urlencode 'day=2' --data-urlencode 'day=3' \
+  --data-urlencode 'day=4' --data-urlencode 'day=5' \
+  --data-urlencode 'start_time=09:00' --data-urlencode 'end_time=18:00')
+check "ルール追加が成功" "200" "$CODE"
+CODE=$(curl -s -o /dev/null -w '%{http_code}' -X POST "$BASE/settings/rules?/add" \
+  -H "Cookie: $BOB" -H "$ORIGIN" -H "$ACCEPT" \
+  --data-urlencode 'day=1' --data-urlencode 'start_time=18:00' --data-urlencode 'end_time=09:00')
+check "開始>=終了のルールは 400" "400" "$CODE"
+RPAGE=$(curl -s "$BASE/settings/rules" -H "Cookie: $BOB")
+check "一覧に表示される" "yes" "$(echo "$RPAGE" | grep -q '月・火・水・木・金 の 09:00〜18:00' && echo yes || echo no)"
+
+echo "== 22. イベントページで下書き提案(平日昼=×、土曜=○)"
+# 2026-08-03(月)13:00 / 2026-08-01(土)13:00 / 2026-08-08(土)18:00
+R=$(create_event 'ルール検証' 2026-08-03 2026-08-01 2026-08-08)
+read -r -a RS <<< "$(slots_of "$R")"
+MON=${RS[1]}; SAT=${RS[0]}  # date順: 08-01(土)が先、08-03(月)が2番目
+RBODY=$(curl -s "$BASE/e/$R" -H "Cookie: $BOB")
+check "下書きバナーが出る" "yes" "$(echo "$RBODY" | grep -q '下書きしました' && echo yes || echo no)"
+check "平日昼スロットは × がプリセット" "yes" "$(echo "$RBODY" | grep -o "name=\"slot_$MON\" value=\"no\"[^>]*" | grep -q checked && echo yes || echo no)"
+check "土曜スロットは ○ がプリセット" "yes" "$(echo "$RBODY" | grep -o "name=\"slot_$SAT\" value=\"yes\"[^>]*" | grep -q checked && echo yes || echo no)"
+CNT=$(d1_json "SELECT COUNT(*) c FROM answers a JOIN participants p ON a.participant_id=p.id WHERE p.event_id='$R'" "r[0].c")
+check "提案だけでは回答は保存されない" "0" "$CNT"
+
+echo "== 23. 回答済みスロットには提案しない"
+curl -s -o /dev/null -X POST "$BASE/e/$R?/answer" -H "Cookie: $BOB" -H "$ORIGIN" -H "$ACCEPT" --data-urlencode "slot_$MON=yes"
+RBODY2=$(curl -s "$BASE/e/$R" -H "Cookie: $BOB")
+check "手動回答(○)がルール(×)より優先" "yes" "$(echo "$RBODY2" | grep -o "name=\"slot_$MON\" value=\"yes\"[^>]*" | grep -q checked && echo yes || echo no)"
+
+echo "== 24. ルールなしユーザー・削除"
+ABODY=$(curl -s "$BASE/e/$R" -H "Cookie: $ALICE")
+check "ルールなしのアリスには提案が出ない" "yes" "$(echo "$ABODY" | grep -q '下書きしました' && echo no || echo yes)"
+RID=$(d1_json "SELECT id FROM ng_rules WHERE user_id='u_bob' LIMIT 1" "r[0].id")
+CODE=$(curl -s -o /dev/null -w '%{http_code}' -X POST "$BASE/settings/rules?/remove" \
+  -H "Cookie: $BOB" -H "$ORIGIN" -H "$ACCEPT" --data-urlencode "rule_id=$RID")
+check "ルール削除が成功" "200" "$CODE"
+CNT=$(d1_json "SELECT COUNT(*) c FROM ng_rules WHERE user_id='u_bob'" "r[0].c")
+check "ルールが消えている" "0" "$CNT"
+
+echo
 echo "RESULT: PASS=$PASS FAIL=$FAIL"
 [ "$FAIL" -eq 0 ]

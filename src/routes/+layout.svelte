@@ -24,6 +24,7 @@
 		</a>
 		{#if data.user}
 			<div class="user-box">
+				<a href="/settings/rules" class="btn btn-ghost btn-sm">⚙ 都合ルール</a>
 				{#if data.user.image}
 					<img src={data.user.image} alt="" class="avatar" referrerpolicy="no-referrer" />
 				{/if}
