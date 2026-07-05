@@ -4,28 +4,26 @@
 
 	let { data, form } = $props();
 
-	const statusLabel = { open: '募集中', suspended: '募集停止', closed: '募集終了' } as const;
+	const statusLabel = { open: '募集OK', suspended: '募集停止' } as const;
 
-	const isOpen = $derived(data.event.status === 'open');
 	const isSuspended = $derived(data.event.status === 'suspended');
-	const isClosed = $derived(data.event.status === 'closed');
+	const confirmedSlot = $derived(
+		data.event.confirmedSlotId
+			? (data.detail.slots.find((s) => s.id === data.event.confirmedSlotId) ?? null)
+			: null
+	);
 
-	function confirmClose(e: SubmitEvent) {
-		if (
-			!confirm(
-				'募集終了にすると、以後いっさい回答の追加・変更ができなくなります(元に戻せません)。よろしいですか?'
-			)
-		) {
-			e.preventDefault();
-		}
-	}
-
-	function confirmSlotConfirm(e: SubmitEvent) {
-		if (
-			!confirm('この回で確定し、募集を終了します(元に戻せません)。よろしいですか?')
-		) {
-			e.preventDefault();
-		}
+	// #13: use:enhance は onsubmit の preventDefault を無視するため、cancel() で止める
+	function withConfirm(message: string) {
+		return ({ cancel }: { cancel: () => void }) => {
+			if (!confirm(message)) {
+				cancel();
+				return;
+			}
+			return async ({ update }: { update: () => Promise<void> }) => {
+				await update();
+			};
+		};
 	}
 </script>
 
@@ -47,55 +45,70 @@
 
 <h2 class="section-title">募集ステータス</h2>
 <div class="card status-card">
-	{#if isOpen}
-		<p class="muted">
-			候補の日時を変更する時は、まず「募集停止」にしてください(回答が一時止まります)。回の中止はいつでもできます。
-		</p>
-		<div class="btn-row">
-			<form method="POST" action="?/suspend" use:enhance>
-				<button class="btn">🎭 募集停止にする(候補日の調整)</button>
-			</form>
-			<form method="POST" action="?/close" use:enhance onsubmit={confirmClose}>
-				<button class="btn">募集終了にする(確定なし)</button>
-			</form>
-		</div>
-	{:else if isSuspended}
-		<p class="muted">募集停止中。候補の編集が終わったら再開しましょう。</p>
-		<div class="btn-row">
-			<form method="POST" action="?/reopen" use:enhance>
-				<button class="btn btn-primary">▶ 募集を再開する</button>
-			</form>
-			<form method="POST" action="?/close" use:enhance onsubmit={confirmClose}>
-				<button class="btn">募集終了にする(確定なし)</button>
-			</form>
-		</div>
+	{#if isSuspended}
+		<p class="muted">募集停止中(回答は一時ストップ)。候補の日時変更はこの間に。終わったら再開しましょう。</p>
+		<form method="POST" action="?/reopen" use:enhance>
+			<button class="btn btn-primary">▶ 募集を再開する</button>
+		</form>
 	{:else}
-		<p class="muted">この調整は募集終了しています。回答の追加・変更、候補の編集はできません。</p>
+		<p class="muted">
+			回答を受付中です。回答を一時的に止めたいとき・候補の日時を変更したいときは「募集停止」にします(いつでも再開できます)。
+		</p>
+		<form method="POST" action="?/suspend" use:enhance>
+			<button class="btn">⏸ 募集停止にする</button>
+		</form>
 	{/if}
 </div>
 
-{#if !isClosed}
-	<h2 class="section-title">回を確定する</h2>
-	<div class="card">
-		<p class="muted">確定すると募集終了になり、以後回答は変更できません。</p>
-		<form method="POST" action="?/confirm" use:enhance onsubmit={confirmSlotConfirm} class="confirm-form">
-			{#each data.detail.slots.filter((s) => !s.isCancelled) as slot (slot.id)}
-				{@const counts = data.detail.counts[slot.id]}
-				<label class="confirm-row">
-					<input type="radio" name="slot_id" value={slot.id} required />
-					<span class="confirm-slot">{formatSlot(slot)}</span>
-					<span class="count-yes">○{counts.yes}</span>
-					<span class="count-maybe">△{counts.maybe}</span>
-				</label>
-			{/each}
-			<button class="btn btn-primary">🎫 この回で確定する</button>
+<h2 class="section-title">日程の確定</h2>
+<div class="card">
+	{#if confirmedSlot}
+		<p class="confirmed-line">
+			🎫 現在 <strong>{formatSlot(confirmedSlot)}</strong> で確定しています。
+		</p>
+		<p class="muted">確定後も回答の受付は続きます。別の候補に変えるには下から選び直してください。</p>
+		<form
+			method="POST"
+			action="?/unconfirm"
+			use:enhance={withConfirm('確定を解除します。よろしいですか?')}
+		>
+			<button class="btn btn-sm">確定を解除する</button>
 		</form>
-	</div>
-{/if}
+	{:else}
+		<p class="muted">日程が決まったら候補を選んで確定します。確定しても回答の受付は止まりません。</p>
+	{/if}
+	<form
+		method="POST"
+		action="?/confirm"
+		use:enhance={withConfirm(
+			confirmedSlot
+				? '確定する候補を変更します。よろしいですか?'
+				: 'この候補で確定します(あとから変更・解除もできます)。よろしいですか?'
+		)}
+		class="confirm-form"
+	>
+		{#each data.detail.slots.filter((s) => !s.isCancelled) as slot (slot.id)}
+			{@const counts = data.detail.counts[slot.id]}
+			<label class="confirm-row">
+				<input
+					type="radio"
+					name="slot_id"
+					value={slot.id}
+					required
+					checked={slot.id === data.event.confirmedSlotId}
+				/>
+				<span class="confirm-slot">{formatSlot(slot)}</span>
+				<span class="count-yes">○{counts.yes}</span>
+				<span class="count-maybe">△{counts.maybe}</span>
+			</label>
+		{/each}
+		<button class="btn btn-primary">🎫 {confirmedSlot ? 'この候補に変更する' : 'この候補で確定する'}</button>
+	</form>
+</div>
 
-<h2 class="section-title">候補の回</h2>
+<h2 class="section-title">候補の日時</h2>
 <div class="card slots-card">
-	{#if isOpen}
+	{#if !isSuspended}
 		<p class="muted">日時の変更をするには、先に「募集停止」にしてください。追加・中止はいつでもできます。</p>
 	{/if}
 	{#each data.detail.slots as slot (slot.id)}
@@ -103,8 +116,8 @@
 			{#if isSuspended}
 				<form method="POST" action="?/updateSlot" use:enhance class="slot-edit-form">
 					<input type="hidden" name="slot_id" value={slot.id} />
-					<input type="date" name="date" value={slot.date} required aria-label="公演日" />
-					<input type="time" name="start_time" value={slot.startTime} required aria-label="開演時間" />
+					<input type="date" name="date" value={slot.date} required aria-label="日付" />
+					<input type="time" name="start_time" value={slot.startTime} required aria-label="開始時間" />
 					<input
 						type="text"
 						name="label"
@@ -117,55 +130,50 @@
 				</form>
 			{:else}
 				<span class="slot-text">
+					{#if slot.id === data.event.confirmedSlotId}🎫{/if}
 					{formatSlot(slot)}
-					{#if slot.isCancelled}<span class="chip chip-closed">中止</span>{/if}
+					{#if slot.isCancelled}<span class="chip chip-cancelled">中止</span>{/if}
 				</span>
 			{/if}
-			{#if !isClosed}
-				<form
-					method="POST"
-					action={slot.isCancelled ? '?/restoreSlot' : '?/cancelSlot'}
-					use:enhance
-				>
-					<input type="hidden" name="slot_id" value={slot.id} />
-					<button class="btn btn-ghost btn-sm">
-						{slot.isCancelled ? '中止を取り消す' : 'この回を中止'}
-					</button>
-				</form>
-			{/if}
+			<form
+				method="POST"
+				action={slot.isCancelled ? '?/restoreSlot' : '?/cancelSlot'}
+				use:enhance
+			>
+				<input type="hidden" name="slot_id" value={slot.id} />
+				<button class="btn btn-ghost btn-sm">
+					{slot.isCancelled ? '中止を取り消す' : 'この候補を中止'}
+				</button>
+			</form>
 		</div>
 	{/each}
 
-	{#if !isClosed}
-		<form method="POST" action="?/addSlot" use:enhance class="slot-add-form">
-			<input type="date" name="date" required aria-label="公演日" />
-			<input type="time" name="start_time" required aria-label="開演時間" />
-			<input type="text" name="label" maxlength="30" placeholder="ラベル(昼公演など)" aria-label="ラベル" />
-			<button class="btn btn-sm">+ 追加</button>
-		</form>
-	{/if}
+	<form method="POST" action="?/addSlot" use:enhance class="slot-add-form">
+		<input type="date" name="date" required aria-label="日付" />
+		<input type="time" name="start_time" required aria-label="開始時間" />
+		<input type="text" name="label" maxlength="30" placeholder="ラベル(昼の部など)" aria-label="ラベル" />
+		<button class="btn btn-sm">+ 追加</button>
+	</form>
 </div>
 
-{#if !isClosed}
-	<h2 class="section-title">公演情報</h2>
-	<form method="POST" action="?/updateInfo" use:enhance>
-		<div class="card form-card">
-			<label>
-				公演タイトル
-				<input type="text" name="title" value={data.event.title} required maxlength="120" />
-			</label>
-			<label>
-				会場
-				<input type="text" name="venue" value={data.event.venue ?? ''} maxlength="120" />
-			</label>
-			<label>
-				メモ
-				<textarea name="memo" rows="2" maxlength="1000">{data.event.memo ?? ''}</textarea>
-			</label>
-			<button class="btn" type="submit">保存する</button>
-		</div>
-	</form>
-{/if}
+<h2 class="section-title">基本情報</h2>
+<form method="POST" action="?/updateInfo" use:enhance>
+	<div class="card form-card">
+		<label>
+			タイトル
+			<input type="text" name="title" value={data.event.title} required maxlength="120" />
+		</label>
+		<label>
+			場所
+			<input type="text" name="venue" value={data.event.venue ?? ''} maxlength="120" />
+		</label>
+		<label>
+			メモ
+			<textarea name="memo" rows="2" maxlength="1000">{data.event.memo ?? ''}</textarea>
+		</label>
+		<button class="btn" type="submit">保存する</button>
+	</div>
+</form>
 
 <style>
 	.event-head {
@@ -190,19 +198,20 @@
 	.status-card {
 		display: grid;
 		gap: 0.6rem;
+		justify-items: start;
 	}
 
-	.btn-row {
-		display: flex;
-		gap: 0.6rem;
-		flex-wrap: wrap;
+	.confirmed-line {
+		margin: 0;
 	}
 
 	.confirm-form {
 		display: grid;
 		gap: 0.5rem;
 		justify-items: start;
-		margin-top: 0.6rem;
+		margin-top: 0.8rem;
+		border-top: 1px dashed var(--border);
+		padding-top: 0.8rem;
 	}
 
 	.confirm-row {

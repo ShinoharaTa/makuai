@@ -134,7 +134,7 @@ button:focus-visible {
 	color: var(--maybe);
 }
 
-.chip-closed {
+.chip-cancelled {
 	background: color-mix(in srgb, var(--no) 25%, transparent);
 	color: var(--text-dim);
 }

@@ -6,7 +6,7 @@
 
 ## 現在のフェーズ
 
-MVP 実装済み(2026-07-05)。Google ログイン、イベント作成(公演スロット)、○△×回答、集計マトリクス、ステータス管理(open/suspended/closed)、確定(confirm)まで動く。実際の Google ログインには OAuth クライアントの設定(README 参照)が必要。未着手: 常設NGルール、カレンダー free/busy 取り込み、確定のカレンダー出力、通知。
+MVP 実装済み(2026-07-05)。Google ログイン、イベント作成(日時スロット)、○△×回答、集計マトリクス、ステータス(open ⇄ suspended の2値トグル)、日程確定(ステータスから独立、変更・解除可)まで動く。実際の Google ログインには OAuth クライアントの設定(README 参照)が必要。残タスクは GitHub Issues 参照。
 
 ## 開発フロー(必須ルール)
 
@@ -23,7 +23,8 @@ MVP 実装済み(2026-07-05)。Google ログイン、イベント作成(公演�
 - Cloudflare Workers + D1 + SvelteKit(adapter-cloudflare)+ Drizzle ORM + Better Auth(Google ログイン、全員アカウント必須)
 - 運用コストゼロ(無料枠内)が必須要件。Firebase 等の別エコシステムは足さない
 - D1/認証インスタンスはシングルトン禁止。`src/hooks.server.ts` でリクエストごとに生成して `locals` へ注入
-- ステータス遷移・回答可否のガードは `src/lib/server/guards.ts` に集約。**すべての form action の先頭で検証**(UI の disabled は補助にすぎない)。closed は終端で、participant の INSERT 自体を拒否する
+- 回答可否・権限のガードは `src/lib/server/guards.ts` に集約。**すべての form action の先頭で検証**(UI の disabled は補助にすぎない)。ステータスに終端はなく(closed は 2026-07-05 に廃止 #14)、回答をブロックするのは suspended のみ。日程確定はステータスと独立した属性で、変更・解除可能
+- `use:enhance` は `onsubmit` の `preventDefault()` を無視する。確認ダイアログは enhance コールバックの `cancel()` で実装すること(#13 の教訓)
 
 ## 絶対に守る設計原則
 
