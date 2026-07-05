@@ -18,8 +18,8 @@
 
 	const ogDescription = $derived(
 		data.authed
-			? `${data.event.venue ? `@ ${data.event.venue} ` : ''}公演の回ごとに、誰が行けるかがひと目でわかります。`
-			: `${data.event.venue ? `@ ${data.event.venue} ` : ''}候補${data.slotCount}回・${data.participantCount}人が回答中。あなたはどの回に行ける?`
+			? `${data.event.venue ? `@ ${data.event.venue} ` : ''}候補の日時ごとに、誰が行けるかがひと目でわかります。`
+			: `${data.event.venue ? `@ ${data.event.venue} ` : ''}候補${data.slotCount}件・${data.participantCount}人が回答中。あなたはいつ行ける?`
 	);
 
 	const confirmedSlot = $derived.by(() => {
@@ -73,7 +73,7 @@
 			<h1>{data.event.title}</h1>
 			{#if data.event.venue}<p class="muted">@ {data.event.venue}</p>{/if}
 			<p class="teaser-stats">
-				候補 <strong>{data.slotCount}</strong> 回 ・ <strong>{data.participantCount}</strong> 人が回答中
+				候補 <strong>{data.slotCount}</strong> 件 ・ <strong>{data.participantCount}</strong> 人が回答中
 			</p>
 			<a href="/login?redirectTo=/e/{data.event.id}" class="btn btn-primary">
 				Google でログインして回答する
@@ -122,11 +122,12 @@
 	{/if}
 
 	<h2 class="section-title">みんなの回答</h2>
+
 	<div class="matrix-wrap">
 		<table class="matrix">
 			<thead>
 				<tr>
-					<th class="slot-col">候補の回</th>
+					<th class="slot-col">候補の日時</th>
 					<th class="count-col">集計</th>
 					{#each data.detail.participants as p (p.id)}
 						<th class="person-col" title={p.name}>
