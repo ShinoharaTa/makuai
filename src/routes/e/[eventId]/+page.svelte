@@ -112,7 +112,13 @@
 
 	{#if confirmedSlot}
 		<div class="confirmed-banner">
-			🎫 <strong>{formatSlot(confirmedSlot)}</strong> に決定!当日をお楽しみに。
+			<span>🎫 <strong>{formatSlot(confirmedSlot)}</strong> に決定!当日をお楽しみに。</span>
+			<span class="calendar-links">
+				<a href="/e/{data.event.id}/calendar.ics" class="btn btn-sm" download>📅 .ics で追加</a>
+				<a href={data.googleCalendarUrl} class="btn btn-sm" target="_blank" rel="noopener noreferrer">
+					Google カレンダーで開く
+				</a>
+			</span>
 		</div>
 	{/if}
 	{#if data.event.status === 'suspended'}
@@ -318,6 +324,17 @@
 		padding: 0.9rem 1.2rem;
 		margin: 1rem 0;
 		font-size: 1.05em;
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 0.8rem;
+		flex-wrap: wrap;
+	}
+
+	.calendar-links {
+		display: flex;
+		gap: 0.5rem;
+		flex-wrap: wrap;
 	}
 
 	.notice-banner {
