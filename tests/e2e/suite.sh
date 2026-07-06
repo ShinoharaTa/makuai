@@ -285,5 +285,22 @@ CNT=$(d1_json "SELECT COUNT(*) c FROM ng_rules WHERE user_id='u_bob'" "r[0].c")
 check "ルールが消えている" "0" "$CNT"
 
 echo
+echo "=== カレンダー出力編(#5) ==="
+
+echo "== 25. .ics ダウンロード"
+# ダッシュボード編の C(確定済み・未来日)を流用
+CODE=$(curl -s -o /dev/null -w '%{http_code}' "$BASE/e/$C/calendar.ics" -H "Cookie: $BOB")
+check "確定済みイベントの .ics は 200" "200" "$CODE"
+ICS=$(curl -s "$BASE/e/$C/calendar.ics" -H "Cookie: $BOB")
+check "SUMMARY にタイトル" "yes" "$(echo "$ICS" | grep -q 'SUMMARY:ダッシュ検証C 確定済み' && echo yes || echo no)"
+check "DTSTART が JST→UTC 変換(10/1 13:00 JST = 04:00Z)" "yes" "$(echo "$ICS" | grep -q 'DTSTART:20261001T040000Z' && echo yes || echo no)"
+CODE=$(curl -s -o /dev/null -w '%{http_code}' "$BASE/e/$A/calendar.ics" -H "Cookie: $BOB")
+check "未確定イベントの .ics は 404" "404" "$CODE"
+CODE=$(curl -s -o /dev/null -w '%{http_code}' "$BASE/e/$C/calendar.ics")
+check "未ログインはログインへリダイレクト" "302" "$CODE"
+EPAGE=$(curl -s "$BASE/e/$C" -H "Cookie: $BOB")
+check "確定バナーにカレンダーリンク" "yes" "$(echo "$EPAGE" | grep -q 'calendar.ics' && echo "$EPAGE" | grep -q 'calendar.google.com' && echo yes || echo no)"
+
+echo
 echo "RESULT: PASS=$PASS FAIL=$FAIL"
 [ "$FAIL" -eq 0 ]

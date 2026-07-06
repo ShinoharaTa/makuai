@@ -1,6 +1,7 @@
 import { fail } from '@sveltejs/kit';
 import { and, count, eq } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
+import { googleCalendarUrl } from '$lib/ics';
 import { suggestMarks } from '$lib/rules';
 import { loadEventDetail } from '$lib/server/events';
 import { answerBlockedReason, loadEventOr404 } from '$lib/server/guards';
@@ -8,7 +9,7 @@ import { redirectToLogin } from '$lib/server/redirect';
 import { answers, ngRules, participants, slots, MARKS, type Mark } from '$lib/server/db/schema';
 import type { Actions, PageServerLoad } from './$types';
 
-export const load: PageServerLoad = async ({ locals, params }) => {
+export const load: PageServerLoad = async ({ locals, params, url }) => {
 	const db = locals.db;
 	const event = await loadEventOr404(db, params.eventId);
 
@@ -50,9 +51,24 @@ export const load: PageServerLoad = async ({ locals, params }) => {
 		myRules
 	);
 
+	const confirmedSlot = event.confirmedSlotId
+		? detail.slots.find((s) => s.id === event.confirmedSlotId)
+		: undefined;
+
 	return {
 		authed: true as const,
 		suggestions,
+		googleCalendarUrl: confirmedSlot
+			? googleCalendarUrl({
+					uid: event.id,
+					title: event.title,
+					venue: event.venue,
+					memo: event.memo,
+					date: confirmedSlot.date,
+					startTime: confirmedSlot.startTime,
+					url: `${url.origin}/e/${event.id}`
+				})
+			: null,
 		myDisplayName: myParticipant?.hasCustomName ? myParticipant.name : '',
 		event: {
 			id: event.id,
