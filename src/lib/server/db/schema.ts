@@ -13,6 +13,57 @@ export type EventStatus = (typeof EVENT_STATUSES)[number];
 export const MARKS = ['yes', 'maybe', 'no'] as const;
 export type Mark = (typeof MARKS)[number];
 
+// 常設グループ(#11)。加入は招待経由のみ。
+// 誰がメンバーかは管理者のみ閲覧可(UI/クエリ側で強制)。
+export const groups = sqliteTable('groups', {
+	id: text('id').primaryKey(), // nanoid(21)
+	name: text('name').notNull(),
+	ownerId: text('owner_id')
+		.notNull()
+		.references(() => user.id),
+	createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull(),
+	updatedAt: integer('updated_at', { mode: 'timestamp_ms' }).notNull()
+});
+
+export const GROUP_ROLES = ['admin', 'member'] as const;
+export type GroupRole = (typeof GROUP_ROLES)[number];
+
+export const groupMembers = sqliteTable(
+	'group_members',
+	{
+		id: text('id').primaryKey(),
+		groupId: text('group_id')
+			.notNull()
+			.references(() => groups.id, { onDelete: 'cascade' }),
+		userId: text('user_id')
+			.notNull()
+			.references(() => user.id),
+		role: text('role', { enum: GROUP_ROLES }).notNull().default('member'),
+		createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull()
+	},
+	(table) => [
+		index('group_members_user_idx').on(table.userId),
+		unique('group_members_group_user_uq').on(table.groupId, table.userId)
+	]
+);
+
+// 招待。id 自体が推測不能トークン(招待 URL /g/<id>)。管理者が発行・無効化する
+export const groupInvites = sqliteTable(
+	'group_invites',
+	{
+		id: text('id').primaryKey(), // nanoid(21)
+		groupId: text('group_id')
+			.notNull()
+			.references(() => groups.id, { onDelete: 'cascade' }),
+		createdBy: text('created_by')
+			.notNull()
+			.references(() => user.id),
+		revokedAt: integer('revoked_at', { mode: 'timestamp_ms' }),
+		createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull()
+	},
+	(table) => [index('group_invites_group_idx').on(table.groupId)]
+);
+
 export const events = sqliteTable(
 	'events',
 	{
@@ -21,6 +72,8 @@ export const events = sqliteTable(
 		ownerId: text('owner_id')
 			.notNull()
 			.references(() => user.id),
+		// 任意のグループ紐づけ。グループ削除時は単発イベントとして残す
+		groupId: text('group_id').references(() => groups.id, { onDelete: 'set null' }),
 		title: text('title').notNull(),
 		venue: text('venue'),
 		memo: text('memo'),

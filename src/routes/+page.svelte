@@ -76,7 +76,10 @@
 {:else}
 	<section class="dash-head">
 		<h1>マイ調整</h1>
-		<a href="/events/new" class="btn btn-primary">+ 調整をつくる</a>
+		<span class="dash-actions">
+			<a href="/groups" class="btn">👥 グループ</a>
+			<a href="/events/new" class="btn btn-primary">+ 調整をつくる</a>
+		</span>
 	</section>
 
 	{#if upcoming.length > 0}
@@ -103,6 +106,7 @@
 					<a href="/e/{ev.id}" class="event-card">
 						<span class="event-title">{ev.title}</span>
 						{#if ev.venue}<span class="muted">@ {ev.venue}</span>{/if}
+						{#if ev.groupName}<span class="chip chip-group">👥 {ev.groupName}</span>{/if}
 						{#if ev.confirmed}
 							<span class="chip chip-confirmed">🎫 {formatSlot(ev.confirmed)}</span>
 						{/if}
@@ -211,6 +215,11 @@
 		flex-wrap: wrap;
 	}
 
+	.dash-actions {
+		display: flex;
+		gap: 0.6rem;
+	}
+
 	.section-title {
 		font-size: 1rem;
 		color: var(--text-dim);
@@ -278,6 +287,11 @@
 	.chip-confirmed {
 		background: color-mix(in srgb, var(--gold) 16%, transparent);
 		color: var(--gold);
+	}
+
+	.chip-group {
+		background: color-mix(in srgb, var(--yes) 12%, transparent);
+		color: var(--yes);
 	}
 
 	.chip-unanswered {

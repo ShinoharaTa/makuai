@@ -322,5 +322,87 @@ check "失敗時も回答は保存されない" "0" "$CNT"
 npx wrangler d1 execute makuai --local --command "DELETE FROM account WHERE id='acc_bob_google'" > /dev/null
 
 echo
+echo "=== グループ編(#11) ==="
+
+echo "== 28. グループ作成(作成者=管理者)"
+GLOC=$(curl -s -o /dev/null -w '%{redirect_url}' -X POST "$BASE/groups?/create" \
+  -H "Cookie: $ALICE" -H "$ORIGIN" -H "$ACCEPT" --data-urlencode 'name=いつもの遠征組')
+GID=${GLOC##*/groups/}
+check "作成後 /groups/<id> へリダイレクト" "yes" "$([ -n "$GID" ] && [[ "$GID" != *"/"* ]] && echo yes || echo no)"
+ROLE=$(d1_json "SELECT role FROM group_members WHERE group_id='$GID' AND user_id='u_alice'" "r[0].role")
+check "作成者は admin メンバー" "admin" "$ROLE"
+
+echo "== 29. 招待 URL の発行と参加"
+curl -s -o /dev/null -X POST "$BASE/groups/$GID?/createInvite" -H "Cookie: $ALICE" -H "$ORIGIN" -H "$ACCEPT" --data ""
+INV=$(d1_json "SELECT id FROM group_invites WHERE group_id='$GID' AND revoked_at IS NULL LIMIT 1" "r[0].id")
+check "招待が発行される" "yes" "$([ -n "$INV" ] && echo yes || echo no)"
+CODE=$(curl -s -o /dev/null -w '%{http_code}' "$BASE/g/$INV")
+check "未ログインでも招待ページは 200(グループ名ティーザー)" "200" "$CODE"
+CODE=$(curl -s -o /dev/null -w '%{http_code}' -X POST "$BASE/g/$INV?/join" \
+  -H "Cookie: $BOB" -H "$ORIGIN" -H "$ACCEPT" --data "")
+check "ボブの参加は 303" "303" "$CODE"
+CNT=$(d1_json "SELECT COUNT(*) c FROM group_members WHERE group_id='$GID' AND user_id='u_bob' AND role='member'" "r[0].c")
+check "member ロールで加入" "1" "$CNT"
+
+echo "== 30. メンバーシップの秘匿"
+BPAGE=$(curl -s "$BASE/groups/$GID" -H "Cookie: $BOB")
+check "メンバー(非管理者)にはメンバー一覧が出ない" "yes" "$(echo "$BPAGE" | grep -q 'メンバー(管理者にのみ表示されます)' && echo no || echo yes)"
+check "メンバーのページに他人の名前が出ない" "yes" "$(echo "$BPAGE" | grep -q 'アリス(主催)' && echo no || echo yes)"
+check "招待 URL もメンバーには出ない" "yes" "$(echo "$BPAGE" | grep -q "/g/$INV" && echo no || echo yes)"
+APAGE=$(curl -s "$BASE/groups/$GID" -H "Cookie: $ALICE")
+check "管理者にはメンバー一覧が出る" "yes" "$(echo "$APAGE" | grep -q 'ボブ' && echo yes || echo no)"
+CODE=$(curl -s -o /dev/null -w '%{http_code}' "$BASE/groups/$GID" -H "Cookie: $CAROL")
+check "非メンバーは 404(存在も知らせない)" "404" "$CODE"
+
+echo "== 31. グループ宛の調整がメンバーのダッシュボードに届く"
+GEV=$(curl -s -o /dev/null -w '%{redirect_url}' -X POST "$BASE/events/new?/create" \
+  -H "Cookie: $ALICE" -H "$ORIGIN" -H "$ACCEPT" \
+  --data-urlencode 'title=グループ遠征2027' --data-urlencode "group_id=$GID" \
+  --data-urlencode 'slot_date=2027-02-06' --data-urlencode 'slot_time=13:00' --data-urlencode 'slot_label=昼の部')
+GEV=${GEV##*/e/}
+check "グループ宛イベント作成" "yes" "$([ -n "$GEV" ] && [[ "$GEV" != *"/"* ]] && echo yes || echo no)"
+BDASH=$(curl -s "$BASE/" -H "Cookie: $BOB")
+check "未回答でもボブのダッシュボードに出る" "yes" "$(echo "$BDASH" | grep -q 'グループ遠征2027' && echo yes || echo no)"
+check "グループ名チップが出る" "yes" "$(echo "$BDASH" | grep -q 'いつもの遠征組' && echo yes || echo no)"
+CDASH=$(curl -s "$BASE/" -H "Cookie: $CAROL")
+check "非メンバーのダッシュボードには出ない" "yes" "$(echo "$CDASH" | grep -q 'グループ遠征2027' && echo no || echo yes)"
+
+echo "== 32. ゲスト参加の共存とグループ名の秘匿"
+CODE=$(curl -s -o /dev/null -w '%{http_code}' -X POST "$BASE/e/$GEV?/answer" \
+  -H "Cookie: $CAROL" -H "$ORIGIN" -H "$ACCEPT" --data-urlencode "slot_$(d1_json "SELECT id FROM slots WHERE event_id='$GEV'" "r[0].id")=yes")
+check "非メンバー(ゲスト)も共有URLから回答できる" "200" "$CODE"
+CEV=$(curl -s "$BASE/e/$GEV" -H "Cookie: $CAROL")
+check "ゲストにはグループ名が出ない" "yes" "$(echo "$CEV" | grep -q 'いつもの遠征組' && echo no || echo yes)"
+BEV=$(curl -s "$BASE/e/$GEV" -H "Cookie: $BOB")
+check "メンバーにはグループ名が出る" "yes" "$(echo "$BEV" | grep -q 'いつもの遠征組' && echo yes || echo no)"
+
+echo "== 33. 権限ガード"
+CODE=$(curl -s -o /dev/null -w '%{http_code}' -X POST "$BASE/groups/$GID?/createInvite" \
+  -H "Cookie: $BOB" -H "$ORIGIN" -H "$ACCEPT" --data "")
+check "メンバーの招待発行は 403" "403" "$CODE"
+CODE=$(curl -s -o /dev/null -w '%{http_code}' -X POST "$BASE/events/new?/create" \
+  -H "Cookie: $CAROL" -H "$ORIGIN" -H "$ACCEPT" \
+  --data-urlencode 'title=部外者' --data-urlencode "group_id=$GID" \
+  --data-urlencode 'slot_date=2027-03-01' --data-urlencode 'slot_time=13:00' --data-urlencode 'slot_label=x')
+check "非メンバーのグループ宛作成は 403" "403" "$CODE"
+
+echo "== 34. 招待の無効化と退出・削除"
+curl -s -o /dev/null -X POST "$BASE/groups/$GID?/revokeInvite" \
+  -H "Cookie: $ALICE" -H "$ORIGIN" -H "$ACCEPT" --data-urlencode "invite_id=$INV"
+CODE=$(curl -s -o /dev/null -w '%{http_code}' -X POST "$BASE/g/$INV?/join" \
+  -H "Cookie: $CAROL" -H "$ORIGIN" -H "$ACCEPT" --data "")
+check "無効化した招待での参加は 404" "404" "$CODE"
+CODE=$(curl -s -o /dev/null -w '%{http_code}' -X POST "$BASE/groups/$GID?/leave" \
+  -H "Cookie: $BOB" -H "$ORIGIN" -H "$ACCEPT" --data "")
+check "メンバーの退出は 303" "303" "$CODE"
+CODE=$(curl -s -o /dev/null -w '%{http_code}' -X POST "$BASE/groups/$GID?/deleteGroup" \
+  -H "Cookie: $ALICE" -H "$ORIGIN" -H "$ACCEPT" --data "")
+check "作成者のグループ削除は 303" "303" "$CODE"
+CODE=$(curl -s -o /dev/null -w '%{http_code}' "$BASE/e/$GEV" -H "Cookie: $ALICE")
+check "グループ削除後もイベントは残る(単発化)" "200" "$CODE"
+GN=$(d1_json "SELECT group_id gi FROM events WHERE id='$GEV'" "r[0].gi ?? 'null'")
+check "events.group_id が NULL に戻る" "null" "$GN"
+
+echo
 echo "RESULT: PASS=$PASS FAIL=$FAIL"
 [ "$FAIL" -eq 0 ]

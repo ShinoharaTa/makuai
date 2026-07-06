@@ -4,6 +4,8 @@ import { nanoid } from 'nanoid';
 import { googleCalendarUrl } from '$lib/ics';
 import { suggestMarks } from '$lib/rules';
 import { fetchBusyWindows, hasCalendarConnection } from '$lib/server/calendar';
+import { isGroupMember } from '$lib/server/groups';
+import { groups } from '$lib/server/db/schema';
 import { loadEventDetail } from '$lib/server/events';
 import { answerBlockedReason, loadEventOr404 } from '$lib/server/guards';
 import { redirectToLogin } from '$lib/server/redirect';
@@ -70,8 +72,16 @@ export const load: PageServerLoad = async ({ locals, params, url }) => {
 		? detail.slots.find((s) => s.id === event.confirmedSlotId)
 		: undefined;
 
+	// グループ名はメンバーにのみ表示(ゲストにはグループの存在を見せない)
+	let group: { id: string; name: string } | null = null;
+	if (event.groupId && (await isGroupMember(db, event.groupId, locals.user!.id))) {
+		const row = await db.query.groups.findFirst({ where: eq(groups.id, event.groupId) });
+		if (row) group = { id: row.id, name: row.name };
+	}
+
 	return {
 		authed: true as const,
+		group,
 		suggestions,
 		googleCalendarUrl: confirmedSlot
 			? googleCalendarUrl({

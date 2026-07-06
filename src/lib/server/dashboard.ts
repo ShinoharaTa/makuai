@@ -1,6 +1,15 @@
 import { eq, inArray } from 'drizzle-orm';
 import type { Database } from './db';
-import { answers, events, participants, slots, type EventStatus, type Mark } from './db/schema';
+import {
+	answers,
+	events,
+	groupMembers,
+	groups,
+	participants,
+	slots,
+	type EventStatus,
+	type Mark
+} from './db/schema';
 
 export interface DashboardSlot {
 	id: string;
@@ -15,6 +24,8 @@ export interface DashboardEvent {
 	venue: string | null;
 	status: EventStatus;
 	isOwner: boolean;
+	/** 自分がメンバーであるグループ経由の場合のみグループ名が入る(ゲストには見せない) */
+	groupName: string | null;
 	createdAt: number; // epoch ms(ソート用)
 	/** 中止を除いた候補(クイック回答用) */
 	activeSlots: DashboardSlot[];
@@ -48,6 +59,20 @@ export async function loadDashboard(db: Database, userId: string): Promise<Dashb
 		.innerJoin(participants, eq(participants.eventId, events.id))
 		.where(eq(participants.userId, userId));
 
+	// 自分がメンバーのグループ宛の調整は、未回答でもダッシュボードに出す
+	const myGroups = await db
+		.select({ groupId: groupMembers.groupId, groupName: groups.name })
+		.from(groupMembers)
+		.innerJoin(groups, eq(groupMembers.groupId, groups.id))
+		.where(eq(groupMembers.userId, userId));
+	const groupNameById = new Map(myGroups.map((g) => [g.groupId, g.groupName]));
+	const groupEvents = myGroups.length
+		? await db
+				.select()
+				.from(events)
+				.where(inArray(events.groupId, [...groupNameById.keys()]))
+		: [];
+
 	const byId = new Map<
 		string,
 		{ event: typeof events.$inferSelect; participantId: string | null; isOwner: boolean }
@@ -57,6 +82,9 @@ export async function loadDashboard(db: Database, userId: string): Promise<Dashb
 		const existing = byId.get(event.id);
 		if (existing) existing.participantId = participantId;
 		else byId.set(event.id, { event, participantId, isOwner: false });
+	}
+	for (const event of groupEvents) {
+		if (!byId.has(event.id)) byId.set(event.id, { event, participantId: null, isOwner: false });
 	}
 	if (byId.size === 0) return [];
 
@@ -120,6 +148,7 @@ export async function loadDashboard(db: Database, userId: string): Promise<Dashb
 			venue: event.venue,
 			status: event.status,
 			isOwner,
+			groupName: event.groupId ? (groupNameById.get(event.groupId) ?? null) : null,
 			createdAt: event.createdAt.getTime(),
 			activeSlots,
 			myMarks,

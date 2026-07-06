@@ -10,6 +10,7 @@ function event(overrides: Partial<EventRow> = {}): EventRow {
 	return {
 		id: 'ev1',
 		ownerId: 'owner1',
+		groupId: null,
 		title: 't',
 		venue: null,
 		memo: null,
