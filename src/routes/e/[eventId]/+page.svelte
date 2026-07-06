@@ -101,6 +101,9 @@
 			<h1>{data.event.title}</h1>
 			<p class="muted">
 				{#if data.event.venue}@ {data.event.venue}{/if}
+				{#if data.group}
+					<a href="/groups/{data.group.id}" class="chip chip-group">👥 {data.group.name}</a>
+				{/if}
 			</p>
 		</div>
 		<span class="chip chip-{data.event.status}">{statusLabel[data.event.status]}</span>
@@ -552,6 +555,16 @@
 		color: var(--gold);
 		margin-left: 0.4em;
 		vertical-align: middle;
+	}
+
+	.chip-group {
+		background: color-mix(in srgb, var(--yes) 12%, transparent);
+		color: var(--yes);
+	}
+
+	a.chip-group:hover {
+		text-decoration: none;
+		filter: brightness(1.2);
 	}
 
 	.leave-row {

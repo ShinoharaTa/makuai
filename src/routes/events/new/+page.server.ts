@@ -1,12 +1,16 @@
 import { fail, redirect } from '@sveltejs/kit';
 import { nanoid } from 'nanoid';
+import { isGroupMember, loadMyGroups } from '$lib/server/groups';
 import { events, slots } from '$lib/server/db/schema';
 import { redirectToLogin } from '$lib/server/redirect';
 import type { Actions, PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async ({ locals, url }) => {
 	if (!locals.user) redirectToLogin(url.pathname);
-	return {};
+	return {
+		myGroups: await loadMyGroups(locals.db, locals.user!.id),
+		preselectedGroupId: url.searchParams.get('group')
+	};
 };
 
 export const actions: Actions = {
@@ -18,12 +22,18 @@ export const actions: Actions = {
 		const title = String(form.get('title') ?? '').trim();
 		const venue = String(form.get('venue') ?? '').trim();
 		const memo = String(form.get('memo') ?? '').trim();
+		const groupId = String(form.get('group_id') ?? '').trim() || null;
 		const dates = form.getAll('slot_date').map(String);
 		const times = form.getAll('slot_time').map(String);
 		const labels = form.getAll('slot_label').map(String);
 
 		if (!title) {
 			return fail(400, { message: 'タイトルを入力してください' });
+		}
+
+		// グループ宛はメンバーのみ作成可(管理者でなくてもよい)
+		if (groupId && !(await isGroupMember(db, groupId, locals.user!.id))) {
+			return fail(403, { message: 'このグループには調整を作れません' });
 		}
 
 		const slotInputs: { date: string; startTime: string; label: string }[] = [];
@@ -60,6 +70,7 @@ export const actions: Actions = {
 			db.insert(events).values({
 				id: eventId,
 				ownerId: locals.user.id,
+				groupId,
 				title,
 				venue: venue || null,
 				memo: memo || null,

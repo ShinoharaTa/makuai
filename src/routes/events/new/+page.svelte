@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
 
-	let { form } = $props();
+	let { data, form } = $props();
 
 	let slotRows = $state([
 		{ date: '', time: '', label: '' },
@@ -49,6 +49,18 @@
 			メモ
 			<textarea name="memo" rows="2" maxlength="1000" placeholder="チケット代・集合など、伝えたいことがあれば"></textarea>
 		</label>
+		{#if data.myGroups.length > 0}
+			<label>
+				グループに共有(任意)
+				<select name="group_id">
+					<option value="">共有しない(URL だけで招待)</option>
+					{#each data.myGroups as g (g.id)}
+						<option value={g.id} selected={g.id === data.preselectedGroupId}>👥 {g.name}</option>
+					{/each}
+				</select>
+				<span class="muted hint">選ぶと、グループメンバー全員のダッシュボードに届きます。URL 招待のゲストも参加できます。</span>
+			</label>
+		{/if}
 	</div>
 
 	<h2 class="slots-title">候補の日時</h2>
@@ -103,6 +115,19 @@
 		color: var(--accent-soft);
 		font-size: 0.75em;
 		margin-left: 0.4em;
+	}
+
+	select {
+		padding: 0.6em 0.8em;
+		border: 1px solid var(--border);
+		border-radius: 8px;
+		background: var(--surface-2);
+		color: var(--text);
+	}
+
+	.hint {
+		font-weight: 400;
+		font-size: 0.8em;
 	}
 
 	.slots-title {
