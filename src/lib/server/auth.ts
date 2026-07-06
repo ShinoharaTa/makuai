@@ -20,9 +20,10 @@ export function createAuth(db: Database, env: AuthEnv) {
 		socialProviders: {
 			google: {
 				clientId: env.GOOGLE_CLIENT_ID,
-				clientSecret: env.GOOGLE_CLIENT_SECRET
-				// 将来カレンダー free/busy 連携を足すときはここに
-				// accessType: 'offline' と scope 追加(refresh_token は account テーブルに自動保存される)
+				clientSecret: env.GOOGLE_CLIENT_SECRET,
+				// カレンダー連携(任意)で refresh_token を得るため offline を要求。
+				// 基本ログインのスコープは変えず、freebusy スコープは linkSocial で追加同意を取る
+				accessType: 'offline'
 			}
 		}
 	});

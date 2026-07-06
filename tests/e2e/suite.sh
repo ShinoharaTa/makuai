@@ -302,5 +302,25 @@ EPAGE=$(curl -s "$BASE/e/$C" -H "Cookie: $BOB")
 check "確定バナーにカレンダーリンク" "yes" "$(echo "$EPAGE" | grep -q 'calendar.ics' && echo "$EPAGE" | grep -q 'calendar.google.com' && echo yes || echo no)"
 
 echo
+echo "=== カレンダー連携編(#4) ==="
+
+echo "== 26. 設定ページの連携カード"
+RPAGE=$(curl -s "$BASE/settings/rules" -H "Cookie: $BOB")
+check "未連携なら連携ボタンが出る" "yes" "$(echo "$RPAGE" | grep -q 'Google カレンダーと連携する' && echo yes || echo no)"
+
+echo "== 27. 連携済み(偽トークン)でもページが壊れない"
+# scope に freebusy を含む account 行を直接投入(トークンは無効値 → API 失敗 → 静かに無効化される)
+NOW_MS=$(node -e 'console.log(Date.now())')
+npx wrangler d1 execute makuai --local --command "INSERT OR REPLACE INTO account (id, account_id, provider_id, user_id, access_token, refresh_token, scope, created_at, updated_at) VALUES ('acc_bob_google', 'gacc_bob', 'google', 'u_bob', 'invalid-token', 'invalid-refresh', 'openid,email,profile,https://www.googleapis.com/auth/calendar.freebusy', $NOW_MS, $NOW_MS)" > /dev/null
+RPAGE=$(curl -s "$BASE/settings/rules" -H "Cookie: $BOB")
+check "連携済み表示に変わる" "yes" "$(echo "$RPAGE" | grep -q '✅ 連携済み' && echo yes || echo no)"
+F=$(create_event 'カレンダー耐障害性' 2026-11-01 2026-11-01 2026-11-02)
+CODE=$(curl -s -o /dev/null -w '%{http_code}' "$BASE/e/$F" -H "Cookie: $BOB")
+check "FreeBusy 失敗でもイベントページは 200" "200" "$CODE"
+CNT=$(d1_json "SELECT COUNT(*) c FROM answers a JOIN participants p ON a.participant_id=p.id WHERE p.event_id='$F'" "r[0].c")
+check "失敗時も回答は保存されない" "0" "$CNT"
+npx wrangler d1 execute makuai --local --command "DELETE FROM account WHERE id='acc_bob_google'" > /dev/null
+
+echo
 echo "RESULT: PASS=$PASS FAIL=$FAIL"
 [ "$FAIL" -eq 0 ]

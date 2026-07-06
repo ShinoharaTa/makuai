@@ -1,6 +1,7 @@
 import { fail } from '@sveltejs/kit';
 import { and, asc, eq } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
+import { hasCalendarConnection, CALENDAR_SCOPE } from '$lib/server/calendar';
 import { ngRules } from '$lib/server/db/schema';
 import { redirectToLogin } from '$lib/server/redirect';
 import type { Actions, PageServerLoad } from './$types';
@@ -13,7 +14,9 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 		.where(eq(ngRules.userId, locals.user!.id))
 		.orderBy(asc(ngRules.createdAt));
 	return {
-		rules: rules.map((r) => ({ id: r.id, days: r.days, startTime: r.startTime, endTime: r.endTime }))
+		rules: rules.map((r) => ({ id: r.id, days: r.days, startTime: r.startTime, endTime: r.endTime })),
+		calendarConnected: await hasCalendarConnection(locals.db, locals.user!.id),
+		calendarScope: CALENDAR_SCOPE
 	};
 };
 
