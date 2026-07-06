@@ -1,9 +1,11 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
+	import { authClient } from '$lib/auth-client';
 
 	let { data, form } = $props();
 
 	const dayNames = ['日', '月', '火', '水', '木', '金', '土'];
+	let connecting = $state(false);
 
 	function describeRule(rule: { days: string; startTime: string; endTime: string }): string {
 		const days = rule.days
@@ -11,6 +13,15 @@
 			.map((d) => dayNames[Number(d)])
 			.join('・');
 		return `${days} の ${rule.startTime}〜${rule.endTime}`;
+	}
+
+	async function connectCalendar() {
+		connecting = true;
+		await authClient.linkSocial({
+			provider: 'google',
+			scopes: [data.calendarScope],
+			callbackURL: '/settings/rules'
+		});
 	}
 </script>
 
@@ -44,6 +55,28 @@
 {:else}
 	<p class="muted">まだありません。よくある例: 平日の 09:00〜18:00(仕事・学校)、毎日 23:00〜23:59(終電)。</p>
 {/if}
+
+<h2 class="section-title">Google カレンダー連携(任意)</h2>
+<div class="card calendar-card">
+	{#if data.calendarConnected}
+		<p class="connected">✅ 連携済み。調整を開いたとき、予定が埋まっている候補は × で下書きされます。</p>
+		<p class="muted small">
+			読み取るのは「空いている / 埋まっている」の時間帯だけで、予定のタイトルや内容は一切取得しません。
+			busy かどうかも他のメンバーには伝わりません(伝わるのは送信した ○× のみ)。<br />
+			連携をやめるには
+			<a href="https://myaccount.google.com/permissions" target="_blank" rel="noopener noreferrer">
+				Google アカウントのアクセス権設定</a>から makuai の権限を削除してください。
+		</p>
+	{:else}
+		<p class="muted">
+			連携すると、調整を開いたときにカレンダーの空き状況も下書きに反映されます。<br />
+			読み取るのは「空き / 埋まり」の時間帯のみで、<strong>予定のタイトルや内容は取得すらしません</strong>。
+		</p>
+		<button class="btn" onclick={connectCalendar} disabled={connecting}>
+			{connecting ? 'Google へ移動中…' : 'Google カレンダーと連携する'}
+		</button>
+	{/if}
+</div>
 
 <h2 class="section-title">ルールを追加</h2>
 <form method="POST" action="?/add" use:enhance>
@@ -106,6 +139,22 @@
 		gap: 1rem;
 		margin-top: 1rem;
 		justify-items: start;
+	}
+
+	.calendar-card {
+		display: grid;
+		gap: 0.6rem;
+		margin-top: 1rem;
+		justify-items: start;
+	}
+
+	.connected {
+		margin: 0;
+		font-weight: 600;
+	}
+
+	.small {
+		font-size: 0.85em;
 	}
 
 	.day-row {

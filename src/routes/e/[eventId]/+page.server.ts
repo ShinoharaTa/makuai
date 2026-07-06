@@ -3,6 +3,7 @@ import { and, count, eq } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import { googleCalendarUrl } from '$lib/ics';
 import { suggestMarks } from '$lib/rules';
+import { fetchBusyWindows, hasCalendarConnection } from '$lib/server/calendar';
 import { loadEventDetail } from '$lib/server/events';
 import { answerBlockedReason, loadEventOr404 } from '$lib/server/guards';
 import { redirectToLogin } from '$lib/server/redirect';
@@ -42,13 +43,27 @@ export const load: PageServerLoad = async ({ locals, params, url }) => {
 	const myParticipant = detail.participants.find((p) => p.userId === locals.user!.id);
 	const myMarks: Record<string, Mark> = myParticipant ? (detail.marks[myParticipant.id] ?? {}) : {};
 
-	// 常設NGルールによる下書き提案。未回答の有効スロットにだけ提案し、
+	// 常設NGルール+カレンダー空き状況による下書き提案。未回答の有効スロットにだけ提案し、
 	// 保存は本人の送信まで行わない(自動確定させない)
 	const myRules = await db.select().from(ngRules).where(eq(ngRules.userId, locals.user!.id));
 	const unanswered = detail.slots.filter((s) => !s.isCancelled && !myMarks[s.id]);
+
+	// カレンダー連携済みなら候補期間の busy を取得(保存はしない。失敗時は静かに無効)
+	let busy = null;
+	if (unanswered.length > 0 && (await hasCalendarConnection(db, locals.user!.id))) {
+		const dates = unanswered.map((s) => s.date).sort();
+		busy = await fetchBusyWindows(
+			locals.auth,
+			locals.user!.id,
+			`${dates[0]}T00:00:00+09:00`,
+			`${dates[dates.length - 1]}T23:59:59+09:00`
+		);
+	}
+
 	const suggestions = suggestMarks(
 		unanswered.map((s) => ({ id: s.id, date: s.date, startTime: s.startTime })),
-		myRules
+		myRules,
+		busy
 	);
 
 	const confirmedSlot = event.confirmedSlotId

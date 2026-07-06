@@ -60,4 +60,42 @@ describe('suggestMarks', () => {
 	it('当たったスロットは no、それ以外は yes', () => {
 		expect(suggestMarks(slots, [WEEKDAY_WORK])).toEqual({ mon: 'no', sat: 'yes' });
 	});
+
+	it('ルールなしでもカレンダー連携済み(busy=[])なら全部 yes を提案', () => {
+		expect(suggestMarks(slots, [], [])).toEqual({ mon: 'yes', sat: 'yes' });
+	});
+
+	it('busy と重なるスロットは no(土曜 13:00-16:00 と重なる busy)', () => {
+		const busy = [
+			{
+				startMs: Date.parse('2026-08-01T14:00:00+09:00'),
+				endMs: Date.parse('2026-08-01T15:00:00+09:00')
+			}
+		];
+		expect(suggestMarks(slots, [], busy)).toEqual({ mon: 'yes', sat: 'no' });
+	});
+
+	it('busy 取得失敗(null)はルールのみで判定', () => {
+		expect(suggestMarks(slots, [WEEKDAY_WORK], null)).toEqual({ mon: 'no', sat: 'yes' });
+	});
+
+	it('ルールと busy は OR で合成される', () => {
+		const busy = [
+			{
+				startMs: Date.parse('2026-08-01T13:30:00+09:00'),
+				endMs: Date.parse('2026-08-01T14:00:00+09:00')
+			}
+		];
+		expect(suggestMarks(slots, [WEEKDAY_WORK], busy)).toEqual({ mon: 'no', sat: 'no' });
+	});
+
+	it('スロット終了後に始まる busy は当たらない', () => {
+		const busy = [
+			{
+				startMs: Date.parse('2026-08-01T16:30:00+09:00'),
+				endMs: Date.parse('2026-08-01T18:00:00+09:00')
+			}
+		];
+		expect(suggestMarks(slots, [], busy)).toEqual({ mon: 'yes', sat: 'yes' });
+	});
 });

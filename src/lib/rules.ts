@@ -39,19 +39,39 @@ export function slotHitsRule(slot: SlotInput, rule: NgRuleInput): boolean {
 	return slotStart < ruleEnd && ruleStart < slotEnd;
 }
 
+// カレンダー取り込み(free/busy)の busy 時間帯。epoch ミリ秒。
+// 中身(タイトル等)は存在しない — 取得すらしない設計(REQUIREMENTS 原則)
+export interface BusyWindow {
+	startMs: number;
+	endMs: number;
+}
+
+export function slotStartMs(slot: Pick<SlotInput, 'date' | 'startTime'>): number {
+	return Date.parse(`${slot.date}T${slot.startTime}:00+09:00`);
+}
+
+export function slotHitsBusy(slot: SlotInput, busy: BusyWindow[]): boolean {
+	const start = slotStartMs(slot);
+	const end = start + ASSUMED_DURATION_MIN * 60_000;
+	return busy.some((w) => start < w.endMs && w.startMs < end);
+}
+
 /**
- * ルールから各スロットへの提案を作る。
- * どれかのルールに当たれば ×(no)、当たらなければ ○(yes)。△ は提案しない。
- * ルールが1件もなければ提案自体をしない(空オブジェクト)。
+ * ルールと busy 時間帯から各スロットへの提案を作る。
+ * どちらかに当たれば ×(no)、当たらなければ ○(yes)。△ は提案しない。
+ * ルールが1件もなく、カレンダー未連携(busy === null/undefined)なら提案しない。
  */
 export function suggestMarks(
 	slots: SlotInput[],
-	rules: NgRuleInput[]
+	rules: NgRuleInput[],
+	busy?: BusyWindow[] | null
 ): Record<string, 'yes' | 'no'> {
-	if (rules.length === 0) return {};
+	if (rules.length === 0 && busy == null) return {};
 	const result: Record<string, 'yes' | 'no'> = {};
 	for (const slot of slots) {
-		result[slot.id] = rules.some((rule) => slotHitsRule(slot, rule)) ? 'no' : 'yes';
+		const hit =
+			rules.some((rule) => slotHitsRule(slot, rule)) || (busy != null && slotHitsBusy(slot, busy));
+		result[slot.id] = hit ? 'no' : 'yes';
 	}
 	return result;
 }
