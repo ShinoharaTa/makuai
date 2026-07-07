@@ -1,8 +1,5 @@
 <script lang="ts">
-	import { enhance } from '$app/forms';
-	import { invalidateAll } from '$app/navigation';
 	import { page } from '$app/state';
-	import MarkSelector from '$lib/components/MarkSelector.svelte';
 	import SectionTitle from '$lib/components/SectionTitle.svelte';
 	import StatusChip from '$lib/components/StatusChip.svelte';
 	import { formatSlot } from '$lib/format';
@@ -10,9 +7,6 @@
 	let { data } = $props();
 	const description =
 		'幕間(まくあい)は、ライブ・観劇からオフ会・旅行まで使えるみんなの日程調整。候補の日時ごとに、誰が行けるかがひと目でわかります。';
-
-	let submittingId = $state<string | null>(null);
-	let quickErrors = $state<Record<string, string>>({});
 
 	// 参加予定: 確定済み(確定日が今日以降)で自分が○の回
 	const upcoming = $derived(
@@ -72,10 +66,7 @@
 {:else}
 	<section class="dash-head">
 		<h1>マイ調整</h1>
-		<span class="dash-actions">
-			<a href="/groups" class="btn">👥 グループ</a>
-			<a href="/events/new" class="btn btn-primary">+ 調整をつくる</a>
-		</span>
+		<a href="/events/new" class="btn btn-primary">+ 調整をつくる</a>
 	</section>
 
 	{#if upcoming.length > 0}
@@ -98,8 +89,8 @@
 		<ul class="event-list">
 			{#each active as ev (ev.id)}
 				{@const needsAnswer = ev.status === 'open' && ev.unansweredCount > 0}
-				<li class="card event-block">
-					<a href="/e/{ev.id}" class="event-card">
+				<li>
+					<a href="/e/{ev.id}" class="card event-card">
 						<span class="event-title">{ev.title}</span>
 						{#if ev.venue}<span class="muted">@ {ev.venue}</span>{/if}
 						{#if ev.groupName}<span class="chip chip-group">👥 {ev.groupName}</span>{/if}
@@ -112,47 +103,6 @@
 						{/if}
 						<StatusChip status={ev.status} />
 					</a>
-					{#if needsAnswer}
-						<!-- クイック回答: イベントページの answer アクションへそのまま POST -->
-						<form
-							method="POST"
-							action="/e/{ev.id}?/answer"
-							class="quick-answer"
-							use:enhance={() => {
-								submittingId = ev.id;
-								return async ({ result }) => {
-									submittingId = null;
-									if (result.type === 'failure') {
-										quickErrors[ev.id] =
-											(result.data as { message?: string } | undefined)?.message ??
-											'回答できませんでした';
-									} else {
-										quickErrors[ev.id] = '';
-										await invalidateAll();
-									}
-								};
-							}}
-						>
-							{#if quickErrors[ev.id]}
-								<p class="error-note">{quickErrors[ev.id]}</p>
-							{/if}
-							{#each ev.activeSlots as slot (slot.id)}
-								<div class="answer-row">
-									<span class="answer-slot" class:unanswered={!ev.myMarks[slot.id]}>
-										{formatSlot(slot)}
-									</span>
-									<MarkSelector
-										name="slot_{slot.id}"
-										value={ev.myMarks[slot.id]}
-										label={formatSlot(slot)}
-									/>
-								</div>
-							{/each}
-							<button type="submit" class="btn btn-primary btn-sm" disabled={submittingId === ev.id}>
-								{submittingId === ev.id ? '送信中…' : 'ここから回答する'}
-							</button>
-						</form>
-					{/if}
 				</li>
 			{/each}
 		</ul>
@@ -203,11 +153,6 @@
 		flex-wrap: wrap;
 	}
 
-	.dash-actions {
-		display: flex;
-		gap: 0.6rem;
-	}
-
 	.event-list {
 		list-style: none;
 		margin: 0.8rem 0 0;
@@ -228,15 +173,6 @@
 	a.event-card:hover {
 		text-decoration: none;
 		border-color: var(--accent);
-	}
-
-	.event-block {
-		padding: 0;
-		overflow: hidden;
-	}
-
-	.event-block .event-card {
-		border: none;
 	}
 
 	.event-title {
@@ -278,38 +214,4 @@
 		padding-bottom: 0.4rem;
 	}
 
-	/* クイック回答 */
-	.quick-answer {
-		border-top: 1px dashed var(--border);
-		padding: 0.9rem 1.2rem;
-		display: grid;
-		gap: 0.7rem;
-		justify-items: start;
-	}
-
-	.answer-row {
-		display: flex;
-		align-items: center;
-		justify-content: space-between;
-		gap: 1rem;
-		width: 100%;
-		flex-wrap: wrap;
-	}
-
-	.answer-slot {
-		font-weight: 600;
-	}
-
-	.answer-slot.unanswered::after {
-		content: ' •';
-		color: var(--accent);
-	}
-
-	@media (max-width: 560px) {
-		.answer-row {
-			flex-direction: column;
-			align-items: stretch;
-			gap: 0.4rem;
-		}
-	}
 </style>

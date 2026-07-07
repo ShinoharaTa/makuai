@@ -1,14 +1,19 @@
 <script lang="ts">
 	import '../app.css';
 	import favicon from '$lib/assets/favicon.svg';
-	import { invalidateAll } from '$app/navigation';
-	import { authClient } from '$lib/auth-client';
+	import { page } from '$app/state';
 
 	let { data, children } = $props();
 
-	async function signOut() {
-		await authClient.signOut();
-		await invalidateAll();
+	const navItems = [
+		{ href: '/', icon: '🎫', label: 'ダッシュボード' },
+		{ href: '/groups', icon: '👥', label: 'グループ' },
+		{ href: '/settings', icon: '⚙', label: '設定' }
+	];
+
+	function isActive(href: string): boolean {
+		if (href === '/') return page.url.pathname === '/';
+		return page.url.pathname.startsWith(href);
 	}
 </script>
 
@@ -23,14 +28,19 @@
 			<span class="brand-sub">makuai</span>
 		</a>
 		{#if data.user}
-			<div class="user-box">
-				<a href="/settings/rules" class="btn btn-ghost btn-sm">⚙ 都合ルール</a>
-				{#if data.user.image}
-					<img src={data.user.image} alt="" class="avatar" referrerpolicy="no-referrer" />
-				{/if}
-				<span class="user-name">{data.user.name}</span>
-				<button class="btn btn-ghost btn-sm" onclick={signOut}>ログアウト</button>
-			</div>
+			<nav class="nav" aria-label="メイン">
+				{#each navItems as item (item.href)}
+					<a href={item.href} class="nav-link" class:active={isActive(item.href)}>
+						<span class="nav-icon" aria-hidden="true">{item.icon}</span>
+						<span class="nav-label">{item.label}</span>
+					</a>
+				{/each}
+				<a href="/settings" class="nav-avatar" title={data.user.name}>
+					{#if data.user.image}
+						<img src={data.user.image} alt={data.user.name} class="avatar" referrerpolicy="no-referrer" />
+					{/if}
+				</a>
+			</nav>
 		{/if}
 	</header>
 
@@ -55,6 +65,8 @@
 		display: flex;
 		align-items: center;
 		justify-content: space-between;
+		gap: 0.4rem 1rem;
+		flex-wrap: wrap;
 		padding: 1rem 0;
 		border-bottom: 1px solid var(--border);
 	}
@@ -83,20 +95,43 @@
 		letter-spacing: 0.08em;
 	}
 
-	.user-box {
+	.nav {
 		display: flex;
 		align-items: center;
-		gap: 0.6em;
+		gap: 0.2rem;
+	}
+
+	.nav-link {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.35em;
+		padding: 0.4em 0.7em;
+		border-radius: 999px;
+		color: var(--text-dim);
+		font-size: 0.9em;
+	}
+
+	.nav-link:hover {
+		text-decoration: none;
+		color: var(--text);
+		background: var(--surface);
+	}
+
+	.nav-link.active {
+		color: var(--text);
+		background: var(--surface-2);
+		font-weight: 700;
+	}
+
+	.nav-avatar {
+		display: inline-flex;
+		margin-left: 0.4rem;
 	}
 
 	.avatar {
 		width: 28px;
 		height: 28px;
 		border-radius: 50%;
-	}
-
-	.user-name {
-		font-size: 0.9em;
 	}
 
 	.main {
@@ -110,9 +145,14 @@
 		text-align: center;
 	}
 
-	@media (max-width: 480px) {
-		.user-name {
+	@media (max-width: 560px) {
+		.nav-label {
 			display: none;
+		}
+
+		.nav-link {
+			font-size: 1.05em;
+			padding: 0.4em 0.55em;
 		}
 	}
 </style>

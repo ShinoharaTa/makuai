@@ -212,7 +212,7 @@
 	<SectionTitle>回答表</SectionTitle>
 	{#if !data.blockedReason && Object.keys(data.suggestions).length > 0}
 		<p class="suggestion-note">
-			✨ あなたの<a href="/settings/rules">都合ルール</a>とカレンダーから未回答分を下書きしました。確認して保存してください。
+			✨ あなたの<a href="/settings">都合ルール</a>とカレンダーから未回答分を下書きしました。確認して保存してください。
 		</p>
 	{/if}
 
