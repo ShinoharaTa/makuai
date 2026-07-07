@@ -81,6 +81,7 @@ export const load: PageServerLoad = async ({ locals, params, url }) => {
 
 	return {
 		authed: true as const,
+		myParticipantId: myParticipant?.id ?? null,
 		group,
 		suggestions,
 		googleCalendarUrl: confirmedSlot
