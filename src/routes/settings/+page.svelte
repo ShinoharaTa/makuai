@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
+	import { goto, invalidateAll } from '$app/navigation';
 	import { authClient } from '$lib/auth-client';
 	import SectionTitle from '$lib/components/SectionTitle.svelte';
 
@@ -8,24 +9,30 @@
 	const dayNames = ['日', '月', '火', '水', '木', '金', '土'];
 	let connecting = $state(false);
 
+	async function signOut() {
+		await authClient.signOut();
+		await invalidateAll();
+		await goto('/');
+	}
+
 	async function connectCalendar() {
 		connecting = true;
 		await authClient.linkSocial({
 			provider: 'google',
 			scopes: [data.calendarScope],
-			callbackURL: '/settings/rules'
+			callbackURL: '/settings'
 		});
 	}
 </script>
 
 <svelte:head>
-	<title>都合ルール — 幕間 makuai</title>
+	<title>設定 — 幕間 makuai</title>
 </svelte:head>
 
-<h1>都合ルール</h1>
+<h1>設定</h1>
 <p class="muted">
-	「この曜日のこの時間は行けない」を登録しておくと、新しい調整を開いたときに ○× が自動で下書きされます(送信するまで回答にはなりません)。<br />
-	ルールの内容はあなたにしか見えず、他のメンバーには ○× しか伝わりません。
+	都合ルールとカレンダー連携を設定しておくと、新しい調整を開いたときに ○× が自動で下書きされます(保存するまで回答にはなりません)。<br />
+	内容はあなたにしか見えず、他のメンバーには ○× しか伝わりません。
 </p>
 
 {#if form?.message}
@@ -124,7 +131,46 @@
 	</div>
 </form>
 
+<SectionTitle>アカウント</SectionTitle>
+<div class="card account-card">
+	<div class="account-row">
+		{#if data.account.image}
+			<img src={data.account.image} alt="" class="account-avatar" referrerpolicy="no-referrer" />
+		{/if}
+		<div>
+			<div class="account-name">{data.account.name}</div>
+			<div class="muted small">{data.account.email}</div>
+		</div>
+	</div>
+	<button class="btn btn-ghost btn-sm" onclick={signOut}>ログアウト</button>
+</div>
+
 <style>
+	.account-card {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 1rem;
+		margin-top: 1rem;
+		flex-wrap: wrap;
+	}
+
+	.account-row {
+		display: flex;
+		align-items: center;
+		gap: 0.8rem;
+	}
+
+	.account-avatar {
+		width: 40px;
+		height: 40px;
+		border-radius: 50%;
+	}
+
+	.account-name {
+		font-weight: 700;
+	}
+
 	.rule-list {
 		list-style: none;
 		margin: 0.8rem 0 0;

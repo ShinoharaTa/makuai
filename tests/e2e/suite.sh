@@ -174,10 +174,10 @@ DASH=$(curl -s "$BASE/" -H "Cookie: $BOB")
 check "参加予定に将来確定+○" "yes" "$(echo "$DASH" | grep -q '参加予定' && echo "$DASH" | grep -q 'ダッシュ検証C' && echo yes || echo no)"
 check "確定日時が出る" "yes" "$(echo "$DASH" | grep -q '10/1(木) 13:00' && echo yes || echo no)"
 check "未回答バッジ(未回答 2)" "yes" "$(echo "$DASH" | grep -q '未回答 2' && echo yes || echo no)"
-check "クイック回答フォーム" "yes" "$(echo "$DASH" | grep -q "action=\"/e/$A?/answer\"" && echo yes || echo no)"
+check "クイック回答フォームは出ない(#32で廃止)" "yes" "$(echo "$DASH" | grep -q "action=\"/e/$A?/answer\"" && echo no || echo yes)"
 check "過去のイベントに過去分" "yes" "$(echo "$DASH" | grep -q '過去のイベント' && echo "$DASH" | grep -q 'ダッシュ検証D' && echo yes || echo no)"
 
-echo "== 15. クイック回答 → バッジ解消"
+echo "== 15. 回答するとバッジ解消"
 CODE=$(curl -s -o /dev/null -w '%{http_code}' -X POST "$BASE/e/$A?/answer" \
   -H "Cookie: $BOB" -H "$ORIGIN" -H "$ACCEPT" \
   --data-urlencode "slot_${AS[1]}=maybe" --data-urlencode "slot_${AS[2]}=no")
@@ -244,17 +244,19 @@ echo
 echo "=== NGルール編(#3) ==="
 
 echo "== 21. ルールの登録と一覧"
-CODE=$(curl -s -o /dev/null -w '%{http_code}' -X POST "$BASE/settings/rules?/add" \
+CODE=$(curl -s -o /dev/null -w '%{http_code}' "$BASE/settings/rules" -H "Cookie: $BOB")
+check "旧URL /settings/rules は /settings へリダイレクト" "301" "$CODE"
+CODE=$(curl -s -o /dev/null -w '%{http_code}' -X POST "$BASE/settings?/add" \
   -H "Cookie: $BOB" -H "$ORIGIN" -H "$ACCEPT" \
   --data-urlencode 'day=1' --data-urlencode 'day=2' --data-urlencode 'day=3' \
   --data-urlencode 'day=4' --data-urlencode 'day=5' \
   --data-urlencode 'start_time=09:00' --data-urlencode 'end_time=18:00')
 check "ルール追加が成功" "200" "$CODE"
-CODE=$(curl -s -o /dev/null -w '%{http_code}' -X POST "$BASE/settings/rules?/add" \
+CODE=$(curl -s -o /dev/null -w '%{http_code}' -X POST "$BASE/settings?/add" \
   -H "Cookie: $BOB" -H "$ORIGIN" -H "$ACCEPT" \
   --data-urlencode 'day=1' --data-urlencode 'start_time=18:00' --data-urlencode 'end_time=09:00')
 check "開始>=終了のルールは 400" "400" "$CODE"
-RPAGE=$(curl -s "$BASE/settings/rules" -H "Cookie: $BOB")
+RPAGE=$(curl -s "$BASE/settings" -H "Cookie: $BOB")
 check "一覧に編集フォームで表示される" "yes" "$(echo "$RPAGE" | grep -q 'name="rule_id"' && echo "$RPAGE" | grep -q 'name="start_time" value="09:00"' && echo yes || echo no)"
 
 echo "== 22. イベントページで下書き提案(平日昼=×、土曜=○)"
@@ -276,24 +278,24 @@ check "手動回答(○)がルール(×)より優先" "yes" "$(echo "$RBODY2" | 
 
 echo "== 23b. ルールの編集(#26)"
 RID=$(d1_json "SELECT id FROM ng_rules WHERE user_id='u_bob' LIMIT 1" "r[0].id")
-CODE=$(curl -s -o /dev/null -w '%{http_code}' -X POST "$BASE/settings/rules?/update" \
+CODE=$(curl -s -o /dev/null -w '%{http_code}' -X POST "$BASE/settings?/update" \
   -H "Cookie: $BOB" -H "$ORIGIN" -H "$ACCEPT" --data-urlencode "rule_id=$RID" \
   --data-urlencode 'day=0' --data-urlencode 'day=6' \
   --data-urlencode 'start_time=10:00' --data-urlencode 'end_time=12:00')
 check "編集が成功" "200" "$CODE"
 ROW=$(d1_json "SELECT days, start_time, end_time FROM ng_rules WHERE id='$RID'" "r[0].days+':'+r[0].start_time+'-'+r[0].end_time")
 check "曜日・時間帯が更新される" "0,6:10:00-12:00" "$ROW"
-CODE=$(curl -s -o /dev/null -w '%{http_code}' -X POST "$BASE/settings/rules?/update" \
+CODE=$(curl -s -o /dev/null -w '%{http_code}' -X POST "$BASE/settings?/update" \
   -H "Cookie: $BOB" -H "$ORIGIN" -H "$ACCEPT" --data-urlencode "rule_id=$RID" \
   --data-urlencode 'day=1' --data-urlencode 'start_time=18:00' --data-urlencode 'end_time=09:00')
 check "終了<=開始の編集は 400" "400" "$CODE"
-curl -s -o /dev/null -X POST "$BASE/settings/rules?/update" \
+curl -s -o /dev/null -X POST "$BASE/settings?/update" \
   -H "Cookie: $ALICE" -H "$ORIGIN" -H "$ACCEPT" --data-urlencode "rule_id=$RID" \
   --data-urlencode 'day=1' --data-urlencode 'start_time=00:00' --data-urlencode 'end_time=01:00'
 ROW=$(d1_json "SELECT days FROM ng_rules WHERE id='$RID'" "r[0].days")
 check "他人のルールは編集できない(変化なし)" "0,6" "$ROW"
 # 後続テストのために平日ルールへ戻す
-curl -s -o /dev/null -X POST "$BASE/settings/rules?/update" \
+curl -s -o /dev/null -X POST "$BASE/settings?/update" \
   -H "Cookie: $BOB" -H "$ORIGIN" -H "$ACCEPT" --data-urlencode "rule_id=$RID" \
   --data-urlencode 'day=1' --data-urlencode 'day=2' --data-urlencode 'day=3' \
   --data-urlencode 'day=4' --data-urlencode 'day=5' \
@@ -303,7 +305,7 @@ echo "== 24. ルールなしユーザー・削除"
 ABODY=$(curl -s "$BASE/e/$R" -H "Cookie: $ALICE")
 check "ルールなしのアリスには提案が出ない" "yes" "$(echo "$ABODY" | grep -q '下書きしました' && echo no || echo yes)"
 RID=$(d1_json "SELECT id FROM ng_rules WHERE user_id='u_bob' LIMIT 1" "r[0].id")
-CODE=$(curl -s -o /dev/null -w '%{http_code}' -X POST "$BASE/settings/rules?/remove" \
+CODE=$(curl -s -o /dev/null -w '%{http_code}' -X POST "$BASE/settings?/remove" \
   -H "Cookie: $BOB" -H "$ORIGIN" -H "$ACCEPT" --data-urlencode "rule_id=$RID")
 check "ルール削除が成功" "200" "$CODE"
 CNT=$(d1_json "SELECT COUNT(*) c FROM ng_rules WHERE user_id='u_bob'" "r[0].c")
@@ -330,14 +332,14 @@ echo
 echo "=== カレンダー連携編(#4) ==="
 
 echo "== 26. 設定ページの連携カード"
-RPAGE=$(curl -s "$BASE/settings/rules" -H "Cookie: $BOB")
+RPAGE=$(curl -s "$BASE/settings" -H "Cookie: $BOB")
 check "未連携なら連携ボタンが出る" "yes" "$(echo "$RPAGE" | grep -q 'Google カレンダーと連携する' && echo yes || echo no)"
 
 echo "== 27. 連携済み(偽トークン)でもページが壊れない"
 # scope に freebusy を含む account 行を直接投入(トークンは無効値 → API 失敗 → 静かに無効化される)
 NOW_MS=$(node -e 'console.log(Date.now())')
 npx wrangler d1 execute makuai --local --command "INSERT OR REPLACE INTO account (id, account_id, provider_id, user_id, access_token, refresh_token, scope, created_at, updated_at) VALUES ('acc_bob_google', 'gacc_bob', 'google', 'u_bob', 'invalid-token', 'invalid-refresh', 'openid,email,profile,https://www.googleapis.com/auth/calendar.freebusy', $NOW_MS, $NOW_MS)" > /dev/null
-RPAGE=$(curl -s "$BASE/settings/rules" -H "Cookie: $BOB")
+RPAGE=$(curl -s "$BASE/settings" -H "Cookie: $BOB")
 check "連携済み表示に変わる" "yes" "$(echo "$RPAGE" | grep -q '✅ 連携済み' && echo yes || echo no)"
 F=$(create_event 'カレンダー耐障害性' 2026-11-01 2026-11-01 2026-11-02)
 CODE=$(curl -s -o /dev/null -w '%{http_code}' "$BASE/e/$F" -H "Cookie: $BOB")
