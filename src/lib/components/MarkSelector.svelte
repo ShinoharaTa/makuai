@@ -6,6 +6,8 @@
 		value = undefined,
 		suggested = undefined,
 		includeClear = false,
+		compact = false,
+		disabled = false,
 		label
 	}: {
 		/** ラジオグループの name(例: slot_<id>) */
@@ -16,6 +18,9 @@
 		suggested?: 'yes' | 'no';
 		/** 「−(未回答に戻す)」の選択肢を出すか */
 		includeClear?: boolean;
+		/** 記号のみの詰めた表示(マトリクスのセル内など) */
+		compact?: boolean;
+		disabled?: boolean;
 		label: string;
 	} = $props();
 
@@ -33,11 +38,18 @@
 	}
 </script>
 
-<div class="mark-group" role="radiogroup" aria-label={label}>
+<div class="mark-group" class:compact role="radiogroup" aria-label={label}>
 	{#each choices as choice (choice.value)}
 		<label class="mark-choice mark-choice-{choice.value}">
-			<input type="radio" {name} value={choice.value} checked={isChecked(choice.value)} />
-			<span>{choice.symbol} {choice.label}</span>
+			<input
+				type="radio"
+				{name}
+				value={choice.value}
+				checked={isChecked(choice.value)}
+				{disabled}
+				aria-label="{label} {choice.label}"
+			/>
+			<span>{compact ? choice.symbol : `${choice.symbol} ${choice.label}`}</span>
 		</label>
 	{/each}
 </div>
@@ -64,6 +76,25 @@
 		transition:
 			background 0.12s,
 			color 0.12s;
+	}
+
+	.mark-group.compact {
+		gap: 0.25rem;
+	}
+
+	.mark-group.compact .mark-choice span {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		width: 2em;
+		height: 2em;
+		padding: 0;
+		font-size: 0.95em;
+	}
+
+	.mark-choice input:disabled + span {
+		opacity: 0.45;
+		cursor: not-allowed;
 	}
 
 	.mark-choice input:focus-visible + span {
@@ -98,16 +129,16 @@
 		font-weight: 700;
 	}
 
-	/* モバイル: タップ領域を広げて等分 */
+	/* モバイル: 通常表示はタップ領域を広げて等分(compact はセル内なのでそのまま) */
 	@media (max-width: 560px) {
-		.mark-group {
+		.mark-group:not(.compact) {
 			display: grid;
 			grid-template-columns: repeat(auto-fit, minmax(0, 1fr));
 			gap: 0.4rem;
 			width: 100%;
 		}
 
-		.mark-choice span {
+		.mark-group:not(.compact) .mark-choice span {
 			display: block;
 			text-align: center;
 			padding: 0.65em 0.4em;

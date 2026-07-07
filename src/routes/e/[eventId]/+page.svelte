@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
+	import { invalidateAll } from '$app/navigation';
 	import { page } from '$app/state';
 	import MarkSelector from '$lib/components/MarkSelector.svelte';
 	import SectionTitle from '$lib/components/SectionTitle.svelte';
@@ -11,6 +12,12 @@
 
 	let submitting = $state(false);
 	let copied = $state(false);
+	let ownerBusy = $state(false);
+	// 下書き(未保存の提案)がある状態は最初から「未送信の変更あり」として扱う
+	let dirty = $state(false);
+	$effect(() => {
+		dirty = data.authed && !data.blockedReason && Object.keys(data.suggestions).length > 0;
+	});
 
 	const markSymbol = { yes: '○', maybe: '△', no: '×' } as const;
 
@@ -24,6 +31,11 @@
 		if (!data.authed || !data.event.confirmedSlotId) return null;
 		return data.detail.slots.find((s) => s.id === data.event.confirmedSlotId) ?? null;
 	});
+
+	// 自分以外の参加者(自分の回答は「あなた」列に出す)
+	const others = $derived(
+		data.authed ? data.detail.participants.filter((p) => p.id !== data.myParticipantId) : []
+	);
 
 	// 最有力スロット: 中止以外で ○ 最多(タイなら △ で比較)。回答ゼロなら強調なし
 	const bestSlotId = $derived.by(() => {
@@ -48,6 +60,24 @@
 		await navigator.clipboard.writeText(page.url.origin + `/e/${data.event.id}`);
 		copied = true;
 		setTimeout(() => (copied = false), 2000);
+	}
+
+	// 主催者クイック操作(manage のアクションへ POST → 成功したら再読込)
+	function ownerAction(message?: string) {
+		return ({ cancel }: { cancel: () => void }) => {
+			if (message && !confirm(message)) {
+				cancel();
+				return;
+			}
+			ownerBusy = true;
+			return async ({ result }: { result: { type: string } }) => {
+				ownerBusy = false;
+				await invalidateAll();
+				if (result.type === 'failure') {
+					alert('操作できませんでした。主催者メニューから確認してください。');
+				}
+			};
+		};
 	}
 </script>
 
@@ -121,6 +151,57 @@
 		{/if}
 	</div>
 
+	{#if data.isOwner}
+		<!-- 主催者の高頻度操作(候補の編集・削除は主催者メニューへ) -->
+		<details class="owner-quick card">
+			<summary>⚡ クイック操作(確定・募集停止)</summary>
+			<div class="owner-quick-body">
+				<form
+					method="POST"
+					action="/e/{data.event.id}/manage?/{data.event.status === 'open' ? 'suspend' : 'reopen'}"
+					use:enhance={ownerAction()}
+				>
+					<button class="btn btn-sm" disabled={ownerBusy}>
+						{data.event.status === 'open' ? '⏸ 募集停止にする' : '▶ 募集を再開する'}
+					</button>
+				</form>
+				<form
+					method="POST"
+					action="/e/{data.event.id}/manage?/confirm"
+					class="quick-confirm"
+					use:enhance={ownerAction(
+						confirmedSlot
+							? '確定する候補を変更します。よろしいですか?'
+							: 'この候補で確定します(あとから変更・解除もできます)。よろしいですか?'
+					)}
+				>
+					<select name="slot_id" aria-label="確定する候補">
+						{#each data.detail.slots.filter((s) => !s.isCancelled) as slot (slot.id)}
+							<option
+								value={slot.id}
+								selected={slot.id === (data.event.confirmedSlotId ?? bestSlotId)}
+							>
+								{formatSlot(slot)}(○{data.detail.counts[slot.id].yes})
+							</option>
+						{/each}
+					</select>
+					<button class="btn btn-sm" disabled={ownerBusy}>
+						🎫 {confirmedSlot ? '確定を変更' : 'この候補で確定'}
+					</button>
+				</form>
+				{#if confirmedSlot}
+					<form
+						method="POST"
+						action="/e/{data.event.id}/manage?/unconfirm"
+						use:enhance={ownerAction('確定を解除します。よろしいですか?')}
+					>
+						<button class="btn btn-ghost btn-sm" disabled={ownerBusy}>確定を解除</button>
+					</form>
+				{/if}
+			</div>
+		</details>
+	{/if}
+
 	{#if form?.message}
 		<p class="error-note">{form.message}</p>
 	{/if}
@@ -128,109 +209,122 @@
 		<p class="success-note">回答を受け付けました🎟️</p>
 	{/if}
 
-	<SectionTitle>みんなの回答</SectionTitle>
+	<SectionTitle>回答表</SectionTitle>
+	{#if !data.blockedReason && Object.keys(data.suggestions).length > 0}
+		<p class="suggestion-note">
+			✨ あなたの<a href="/settings/rules">都合ルール</a>とカレンダーから未回答分を下書きしました。確認して保存してください。
+		</p>
+	{/if}
 
-	<div class="matrix-wrap">
-		<table class="matrix">
-			<thead>
-				<tr>
-					<th class="slot-col">候補の日時</th>
-					<th class="count-col">集計</th>
-					{#each data.detail.participants as p (p.id)}
-						<th class="person-col" title={p.name}>
-							{#if p.image}
-								<img src={p.image} alt="" class="avatar" referrerpolicy="no-referrer" />
-							{/if}
-							<span class="person-name">{p.name}</span>
-						</th>
-					{/each}
-				</tr>
-			</thead>
-			<tbody>
-				{#each data.detail.slots as slot (slot.id)}
-					{@const counts = data.detail.counts[slot.id]}
-					<tr
-						class:cancelled={slot.isCancelled}
-						class:best={slot.id === bestSlotId && !confirmedSlot}
-						class:confirmed={slot.id === data.event.confirmedSlotId}
-					>
-						<td class="slot-col">
-							{#if slot.id === data.event.confirmedSlotId}🎫{/if}
-							{formatSlot(slot)}
-							{#if slot.isCancelled}<span class="chip chip-cancelled">中止</span>{/if}
-						</td>
-						<td class="count-col">
-							<span class="count-yes">○{counts.yes}</span>
-							<span class="count-maybe">△{counts.maybe}</span>
-						</td>
-						{#each data.detail.participants as p (p.id)}
-							{@const mark = data.detail.marks[p.id]?.[slot.id]}
-							<td class="mark-cell mark-{mark ?? 'none'}">
-								{mark ? markSymbol[mark] : '−'}
-							</td>
+	<form
+		method="POST"
+		action="?/answer"
+		oninput={() => (dirty = true)}
+		use:enhance={() => {
+			submitting = true;
+			return async ({ update }) => {
+				submitting = false;
+				dirty = false;
+				await update();
+			};
+		}}
+	>
+		<div class="matrix-wrap">
+			<table class="matrix">
+				<thead>
+					<tr>
+						<th class="slot-col">候補の日時</th>
+						<th class="me-col">あなた</th>
+						<th class="count-col">集計</th>
+						{#each others as p (p.id)}
+							<th class="person-col" title={p.name}>
+								{#if p.image}
+									<img src={p.image} alt="" class="avatar" referrerpolicy="no-referrer" />
+								{/if}
+								<span class="person-name">{p.name}</span>
+							</th>
 						{/each}
 					</tr>
-				{/each}
-			</tbody>
-		</table>
-		{#if data.detail.participants.length === 0}
-			<p class="muted">まだ誰も回答していません。共有 URL を送って最初の回答を集めましょう。</p>
-		{/if}
-	</div>
+				</thead>
+				<tbody>
+					{#each data.detail.slots as slot (slot.id)}
+						{@const counts = data.detail.counts[slot.id]}
+						{@const suggested =
+							!slot.isCancelled && !data.myMarks[slot.id] ? data.suggestions[slot.id] : undefined}
+						<tr
+							class:cancelled={slot.isCancelled}
+							class:best={slot.id === bestSlotId && !confirmedSlot}
+							class:confirmed={slot.id === data.event.confirmedSlotId}
+						>
+							<td class="slot-col">
+								{#if slot.id === data.event.confirmedSlotId}🎫{/if}
+								{formatSlot(slot)}
+								{#if slot.isCancelled}<span class="chip chip-cancelled">中止</span>{/if}
+								{#if suggested}<span class="suggested-tag">✨</span>{/if}
+							</td>
+							<td class="me-col">
+								{#if slot.isCancelled}
+									<span class="mark-cell mark-{data.myMarks[slot.id] ?? 'none'}">
+										{data.myMarks[slot.id] ? markSymbol[data.myMarks[slot.id]] : '−'}
+									</span>
+								{:else}
+									<MarkSelector
+										name="slot_{slot.id}"
+										value={data.myMarks[slot.id]}
+										{suggested}
+										includeClear
+										compact
+										disabled={Boolean(data.blockedReason)}
+										label={formatSlot(slot)}
+									/>
+								{/if}
+							</td>
+							<td class="count-col">
+								<span class="count-yes">○{counts.yes}</span>
+								<span class="count-maybe">△{counts.maybe}</span>
+							</td>
+							{#each others as p (p.id)}
+								{@const mark = data.detail.marks[p.id]?.[slot.id]}
+								<td class="mark-cell mark-{mark ?? 'none'}">
+									{mark ? markSymbol[mark] : '−'}
+								</td>
+							{/each}
+						</tr>
+					{/each}
+				</tbody>
+			</table>
+			{#if others.length === 0}
+				<p class="muted">まだあなただけです。共有 URL を送ってみんなの回答を集めましょう。</p>
+			{/if}
+		</div>
 
-	<SectionTitle>あなたの回答</SectionTitle>
-	{#if data.blockedReason}
-		<p class="muted">{data.blockedReason}</p>
-	{:else}
-		{#if Object.keys(data.suggestions).length > 0}
-			<p class="suggestion-note">
-				✨ あなたの<a href="/settings/rules">都合ルール</a>から未回答分を下書きしました。確認して送信してください。
-			</p>
-		{/if}
-		<form
-			method="POST"
-			action="?/answer"
-			use:enhance={() => {
-				submitting = true;
-				return async ({ update }) => {
-					submitting = false;
-					await update();
-				};
-			}}
-		>
-			<div class="card answer-card">
-				{#each data.detail.slots.filter((s) => !s.isCancelled) as slot (slot.id)}
-					{@const suggested = !data.myMarks[slot.id] ? data.suggestions[slot.id] : undefined}
-					<div class="answer-row" class:suggested={Boolean(suggested)}>
-						<span class="answer-slot">
-							{formatSlot(slot)}
-							{#if suggested}<span class="suggested-tag">✨下書き</span>{/if}
-						</span>
-						<MarkSelector
-							name="slot_{slot.id}"
-							value={data.myMarks[slot.id]}
-							{suggested}
-							includeClear
-							label={formatSlot(slot)}
-						/>
-					</div>
-				{/each}
-				<label class="display-name">
-					この調整での表示名(空欄なら Google の名前)
-					<input
-						type="text"
-						name="display_name"
-						value={data.myDisplayName}
-						maxlength="30"
-						placeholder={data.user?.name ?? ''}
-					/>
-				</label>
+		<SectionTitle>詳細</SectionTitle>
+		<div class="card detail-card">
+			<label class="display-name">
+				この調整での表示名(空欄なら Google の名前)
+				<input
+					type="text"
+					name="display_name"
+					value={data.myDisplayName}
+					maxlength="30"
+					placeholder={data.user?.name ?? ''}
+					disabled={Boolean(data.blockedReason)}
+				/>
+			</label>
+			{#if data.blockedReason}
+				<p class="muted">{data.blockedReason}</p>
+			{/if}
+		</div>
+
+		{#if dirty && !data.blockedReason}
+			<div class="save-bar">
+				<span class="save-bar-note">未保存の回答があります</span>
 				<button type="submit" class="btn btn-primary" disabled={submitting}>
-					{submitting ? '送信中…' : data.hasAnswered ? '回答を更新する' : '参加表明する'}
+					{submitting ? '保存中…' : data.hasAnswered ? '回答を保存する' : '参加表明する'}
 				</button>
 			</div>
-		</form>
-	{/if}
+		{/if}
+	</form>
 
 	{#if data.hasAnswered}
 		<div class="leave-row">
@@ -282,7 +376,8 @@
 		display: flex;
 		align-items: flex-start;
 		justify-content: space-between;
-		gap: 1rem;
+		gap: 0.6rem 1rem;
+		flex-wrap: wrap;
 	}
 
 	.event-head h1 {
@@ -330,6 +425,54 @@
 		flex-wrap: wrap;
 	}
 
+	.owner-quick {
+		padding: 0.6rem 1.1rem;
+		margin-bottom: 1rem;
+	}
+
+	.owner-quick summary {
+		cursor: pointer;
+		color: var(--text-dim);
+		font-size: 0.9em;
+	}
+
+	.owner-quick-body {
+		display: flex;
+		gap: 0.6rem;
+		flex-wrap: wrap;
+		align-items: center;
+		padding-top: 0.8rem;
+	}
+
+	.quick-confirm {
+		display: flex;
+		gap: 0.4rem;
+		align-items: center;
+		flex-wrap: wrap;
+	}
+
+	.quick-confirm select {
+		padding: 0.35em 0.5em;
+		border: 1px solid var(--border);
+		border-radius: 8px;
+		background: var(--surface-2);
+		color: var(--text);
+		max-width: 16rem;
+	}
+
+	.suggestion-note {
+		background: color-mix(in srgb, var(--gold) 12%, transparent);
+		border: 1px solid var(--gold);
+		border-radius: 8px;
+		padding: 0.6em 1em;
+		margin: 0.8em 0;
+	}
+
+	.suggested-tag {
+		color: var(--gold);
+		margin-left: 0.3em;
+	}
+
 	.matrix-wrap {
 		overflow-x: auto;
 	}
@@ -350,6 +493,10 @@
 
 	.matrix .slot-col {
 		text-align: left;
+	}
+
+	.me-col {
+		background: color-mix(in srgb, var(--accent) 5%, transparent);
 	}
 
 	.person-col .avatar {
@@ -416,24 +563,11 @@
 		color: var(--text-dim);
 	}
 
-	.answer-card {
+	.detail-card {
 		display: grid;
-		gap: 0.9rem;
+		gap: 0.8rem;
 		margin-top: 1rem;
 		justify-items: start;
-	}
-
-	.answer-row {
-		display: flex;
-		align-items: center;
-		justify-content: space-between;
-		gap: 1rem;
-		width: 100%;
-		flex-wrap: wrap;
-	}
-
-	.answer-slot {
-		font-weight: 600;
 	}
 
 	.display-name {
@@ -445,19 +579,25 @@
 		max-width: 340px;
 	}
 
-	.suggestion-note {
-		background: color-mix(in srgb, var(--gold) 12%, transparent);
-		border: 1px solid var(--gold);
-		border-radius: 8px;
-		padding: 0.6em 1em;
-		margin: 0.8em 0 0;
+	.save-bar {
+		position: fixed;
+		left: 0;
+		right: 0;
+		bottom: 0;
+		z-index: 10;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		gap: 1rem;
+		padding: 0.7rem 1rem calc(0.7rem + env(safe-area-inset-bottom));
+		background: color-mix(in srgb, var(--surface) 92%, transparent);
+		backdrop-filter: blur(8px);
+		border-top: 1px solid var(--border);
 	}
 
-	.suggested-tag {
-		font-size: 0.72em;
+	.save-bar-note {
 		color: var(--gold);
-		margin-left: 0.4em;
-		vertical-align: middle;
+		font-size: 0.9em;
 	}
 
 	.leave-row {
@@ -466,13 +606,7 @@
 		border-top: 1px dashed var(--border);
 		display: flex;
 		justify-content: flex-end;
-	}
-
-	@media (max-width: 560px) {
-		.answer-row {
-			flex-direction: column;
-			align-items: stretch;
-			gap: 0.4rem;
-		}
+		/* 保存バーに隠れないよう余白 */
+		margin-bottom: 4.5rem;
 	}
 </style>
