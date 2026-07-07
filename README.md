@@ -21,6 +21,11 @@ npm run dev                       # http://localhost:5173
 Google OAuth クライアント(ローカル用)は Google Cloud Console で作成し、
 承認済みリダイレクト URI に `http://localhost:5173/api/auth/callback/google` を登録する。
 
+> **カレンダー連携(free/busy)を使う場合は追加で2つ必要**:
+> 1. OAuth 同意画面のスコープに `https://www.googleapis.com/auth/calendar.freebusy` を追加
+> 2. 同じ GCP プロジェクトで **Google Calendar API を有効化**(API とサービス > ライブラリ)。
+>    未有効だと freeBusy が 403 になり、下書きにカレンダーが反映されない(エラーは `wrangler tail` で確認できる)
+
 本番同等の Workers ランタイムで確認する場合:
 
 ```sh

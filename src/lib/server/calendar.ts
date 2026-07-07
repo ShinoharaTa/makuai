@@ -31,7 +31,10 @@ export async function fetchBusyWindows(
 		const { accessToken } = await auth.api.getAccessToken({
 			body: { providerId: 'google', userId }
 		});
-		if (!accessToken) return null;
+		if (!accessToken) {
+			console.error('[calendar] getAccessToken returned empty accessToken');
+			return null;
+		}
 
 		const res = await fetch('https://www.googleapis.com/calendar/v3/freeBusy', {
 			method: 'POST',
@@ -45,14 +48,20 @@ export async function fetchBusyWindows(
 				items: [{ id: 'primary' }]
 			})
 		});
-		if (!res.ok) return null;
+		if (!res.ok) {
+			// 予定の中身は含まれない(エラーレスポンスのみ)。原因調査用に要点だけ出す
+			const body = (await res.text()).slice(0, 500);
+			console.error(`[calendar] freeBusy failed: HTTP ${res.status} ${body}`);
+			return null;
+		}
 
 		const data = (await res.json()) as {
 			calendars?: { primary?: { busy?: { start: string; end: string }[] } };
 		};
 		const busy = data.calendars?.primary?.busy ?? [];
 		return busy.map((w) => ({ startMs: Date.parse(w.start), endMs: Date.parse(w.end) }));
-	} catch {
+	} catch (e) {
+		console.error('[calendar] fetchBusyWindows threw:', e instanceof Error ? e.message : String(e));
 		return null;
 	}
 }
