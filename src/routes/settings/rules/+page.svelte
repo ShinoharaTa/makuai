@@ -7,14 +7,6 @@
 	const dayNames = ['日', '月', '火', '水', '木', '金', '土'];
 	let connecting = $state(false);
 
-	function describeRule(rule: { days: string; startTime: string; endTime: string }): string {
-		const days = rule.days
-			.split(',')
-			.map((d) => dayNames[Number(d)])
-			.join('・');
-		return `${days} の ${rule.startTime}〜${rule.endTime}`;
-	}
-
 	async function connectCalendar() {
 		connecting = true;
 		await authClient.linkSocial({
@@ -38,13 +30,39 @@
 {#if form?.message}
 	<p class="error-note">{form.message}</p>
 {/if}
+{#if form?.success}
+	<p class="success-note">反映しました</p>
+{/if}
 
 <h2 class="section-title">登録済みのルール</h2>
 {#if data.rules.length > 0}
 	<ul class="rule-list">
 		{#each data.rules as rule (rule.id)}
 			<li class="card rule-card">
-				<span class="rule-text">🚫 {describeRule(rule)} は行けない</span>
+				<form method="POST" action="?/update" use:enhance class="rule-edit">
+					<input type="hidden" name="rule_id" value={rule.id} />
+					<span class="rule-prefix">🚫</span>
+					<div class="day-row" role="group" aria-label="曜日">
+						{#each dayNames as name, i (i)}
+							<label class="day-choice" class:weekend={i === 0 || i === 6}>
+								<input
+									type="checkbox"
+									name="day"
+									value={i}
+									checked={rule.days.split(',').includes(String(i))}
+								/>
+								<span>{name}</span>
+							</label>
+						{/each}
+					</div>
+					<span class="time-pair">
+						<input type="time" name="start_time" value={rule.startTime} required aria-label="開始" />
+						<span>〜</span>
+						<input type="time" name="end_time" value={rule.endTime} required aria-label="終了" />
+						<span class="muted">は行けない</span>
+					</span>
+					<button class="btn btn-sm">保存</button>
+				</form>
 				<form method="POST" action="?/remove" use:enhance>
 					<input type="hidden" name="rule_id" value={rule.id} />
 					<button class="btn btn-ghost btn-sm">削除</button>
@@ -128,10 +146,33 @@
 		justify-content: space-between;
 		gap: 0.8rem;
 		padding: 0.7rem 1.1rem;
+		flex-wrap: wrap;
 	}
 
-	.rule-text {
-		font-weight: 600;
+	.rule-edit {
+		display: flex;
+		align-items: center;
+		gap: 0.6rem;
+		flex-wrap: wrap;
+		flex: 1;
+	}
+
+	.rule-prefix {
+		font-size: 1.1em;
+	}
+
+	.time-pair {
+		display: flex;
+		align-items: center;
+		gap: 0.4rem;
+	}
+
+	.success-note {
+		background: color-mix(in srgb, var(--yes) 14%, transparent);
+		border: 1px solid var(--yes);
+		border-radius: 8px;
+		padding: 0.6em 1em;
+		margin: 0.8em 0;
 	}
 
 	.add-card {
