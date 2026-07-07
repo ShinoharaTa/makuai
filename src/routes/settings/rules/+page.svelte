@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
 	import { authClient } from '$lib/auth-client';
+	import SectionTitle from '$lib/components/SectionTitle.svelte';
 
 	let { data, form } = $props();
 
@@ -34,7 +35,7 @@
 	<p class="success-note">反映しました</p>
 {/if}
 
-<h2 class="section-title">登録済みのルール</h2>
+<SectionTitle>登録済みのルール</SectionTitle>
 {#if data.rules.length > 0}
 	<ul class="rule-list">
 		{#each data.rules as rule (rule.id)}
@@ -74,7 +75,7 @@
 	<p class="muted">まだありません。よくある例: 平日の 09:00〜18:00(仕事・学校)、毎日 23:00〜23:59(終電)。</p>
 {/if}
 
-<h2 class="section-title">Google カレンダー連携(任意)</h2>
+<SectionTitle>Google カレンダー連携(任意)</SectionTitle>
 <div class="card calendar-card">
 	{#if data.calendarConnected}
 		<p class="connected">✅ 連携済み。調整を開いたとき、予定が埋まっている候補は × で下書きされます。</p>
@@ -96,7 +97,7 @@
 	{/if}
 </div>
 
-<h2 class="section-title">ルールを追加</h2>
+<SectionTitle>ルールを追加</SectionTitle>
 <form method="POST" action="?/add" use:enhance>
 	<div class="card add-card">
 		<div class="day-row" role="group" aria-label="曜日">
@@ -124,14 +125,6 @@
 </form>
 
 <style>
-	.section-title {
-		font-size: 1rem;
-		color: var(--text-dim);
-		margin-top: 2rem;
-		border-bottom: 1px solid var(--border);
-		padding-bottom: 0.4rem;
-	}
-
 	.rule-list {
 		list-style: none;
 		margin: 0.8rem 0 0;
@@ -165,14 +158,6 @@
 		display: flex;
 		align-items: center;
 		gap: 0.4rem;
-	}
-
-	.success-note {
-		background: color-mix(in srgb, var(--yes) 14%, transparent);
-		border: 1px solid var(--yes);
-		border-radius: 8px;
-		padding: 0.6em 1em;
-		margin: 0.8em 0;
 	}
 
 	.add-card {

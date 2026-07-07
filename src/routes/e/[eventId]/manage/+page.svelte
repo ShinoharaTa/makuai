@@ -1,10 +1,11 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
+	import SectionTitle from '$lib/components/SectionTitle.svelte';
+	import StatusChip from '$lib/components/StatusChip.svelte';
+	import { withConfirm } from '$lib/confirm';
 	import { formatSlot } from '$lib/format';
 
 	let { data, form } = $props();
-
-	const statusLabel = { open: '募集OK', suspended: '募集停止' } as const;
 
 	const isSuspended = $derived(data.event.status === 'suspended');
 	const confirmedSlot = $derived(
@@ -12,19 +13,6 @@
 			? (data.detail.slots.find((s) => s.id === data.event.confirmedSlotId) ?? null)
 			: null
 	);
-
-	// #13: use:enhance は onsubmit の preventDefault を無視するため、cancel() で止める
-	function withConfirm(message: string) {
-		return ({ cancel }: { cancel: () => void }) => {
-			if (!confirm(message)) {
-				cancel();
-				return;
-			}
-			return async ({ update }: { update: () => Promise<void> }) => {
-				await update();
-			};
-		};
-	}
 </script>
 
 <svelte:head>
@@ -35,7 +23,7 @@
 
 <div class="event-head">
 	<h1>主催者メニュー</h1>
-	<span class="chip chip-{data.event.status}">{statusLabel[data.event.status]}</span>
+	<StatusChip status={data.event.status} />
 </div>
 <p class="muted">{data.event.title}</p>
 
@@ -43,7 +31,7 @@
 	<p class="error-note">{form.message}</p>
 {/if}
 
-<h2 class="section-title">募集ステータス</h2>
+<SectionTitle>募集ステータス</SectionTitle>
 <div class="card status-card">
 	{#if isSuspended}
 		<p class="muted">募集停止中(回答は一時ストップ)。候補の日時変更はこの間に。終わったら再開しましょう。</p>
@@ -60,7 +48,7 @@
 	{/if}
 </div>
 
-<h2 class="section-title">日程の確定</h2>
+<SectionTitle>日程の確定</SectionTitle>
 <div class="card">
 	{#if confirmedSlot}
 		<p class="confirmed-line">
@@ -106,7 +94,7 @@
 	</form>
 </div>
 
-<h2 class="section-title">候補の日時</h2>
+<SectionTitle>候補の日時</SectionTitle>
 <div class="card slots-card">
 	{#if !isSuspended}
 		<p class="muted">日時の変更をするには、先に「募集停止」にしてください。追加・中止はいつでもできます。</p>
@@ -156,7 +144,7 @@
 	</form>
 </div>
 
-<h2 class="section-title">基本情報</h2>
+<SectionTitle>基本情報</SectionTitle>
 <form method="POST" action="?/updateInfo" use:enhance>
 	<div class="card form-card">
 		<label>
@@ -199,14 +187,6 @@
 
 	.event-head h1 {
 		margin: 0;
-	}
-
-	.section-title {
-		font-size: 1rem;
-		color: var(--text-dim);
-		margin-top: 2rem;
-		border-bottom: 1px solid var(--border);
-		padding-bottom: 0.4rem;
 	}
 
 	.status-card {
@@ -297,7 +277,11 @@
 	}
 
 	.danger-title {
+		font-size: 1rem;
 		color: var(--accent-soft);
+		margin-top: 2rem;
+		border-bottom: 1px solid var(--border);
+		padding-bottom: 0.4rem;
 	}
 
 	.danger-card {
@@ -305,16 +289,6 @@
 		display: grid;
 		gap: 0.6rem;
 		justify-items: start;
-	}
-
-	:global(.btn-danger) {
-		border-color: var(--accent);
-		color: var(--accent-soft);
-		background: transparent;
-	}
-
-	:global(.btn-danger:hover) {
-		background: color-mix(in srgb, var(--accent) 15%, transparent);
 	}
 
 	@media (max-width: 560px) {

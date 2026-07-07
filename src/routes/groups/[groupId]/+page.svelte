@@ -1,24 +1,13 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
 	import { page } from '$app/state';
+	import SectionTitle from '$lib/components/SectionTitle.svelte';
+	import StatusChip from '$lib/components/StatusChip.svelte';
+	import { withConfirm } from '$lib/confirm';
 
 	let { data, form } = $props();
 
-	const statusLabel = { open: '募集OK', suspended: '募集停止' } as const;
-
 	let copiedInvite = $state<string | null>(null);
-
-	function withConfirm(message: string) {
-		return ({ cancel }: { cancel: () => void }) => {
-			if (!confirm(message)) {
-				cancel();
-				return;
-			}
-			return async ({ update }: { update: () => Promise<void> }) => {
-				await update();
-			};
-		};
-	}
 
 	async function copyInviteUrl(inviteId: string) {
 		await navigator.clipboard.writeText(`${page.url.origin}/g/${inviteId}`);
@@ -42,7 +31,7 @@
 	<p class="error-note">{form.message}</p>
 {/if}
 
-<h2 class="section-title">このグループの調整</h2>
+<SectionTitle>このグループの調整</SectionTitle>
 {#if data.events.length > 0}
 	<ul class="event-list">
 		{#each data.events as ev (ev.id)}
@@ -50,7 +39,7 @@
 				<a href="/e/{ev.id}" class="card event-card">
 					<span class="event-title">{ev.title}</span>
 					{#if ev.venue}<span class="muted">@ {ev.venue}</span>{/if}
-					<span class="chip chip-{ev.status}">{statusLabel[ev.status]}</span>
+					<StatusChip status={ev.status} />
 				</a>
 			</li>
 		{/each}
@@ -61,7 +50,7 @@
 <p><a href="/events/new?group={data.group.id}" class="btn btn-sm">+ このグループで調整をつくる</a></p>
 
 {#if data.role === 'admin' && data.members && data.invites}
-	<h2 class="section-title">メンバー(管理者にのみ表示されます)</h2>
+	<SectionTitle>メンバー(管理者にのみ表示されます)</SectionTitle>
 	<ul class="member-list">
 		{#each data.members as m (m.id)}
 			<li class="card member-card">
@@ -79,7 +68,7 @@
 		{/each}
 	</ul>
 
-	<h2 class="section-title">招待</h2>
+	<SectionTitle>招待</SectionTitle>
 	<div class="card invite-card">
 		<p class="muted">
 			招待 URL を知っている人だけがグループに参加できます。不要になったら無効化してください。
@@ -101,7 +90,7 @@
 		</form>
 	</div>
 
-	<h2 class="section-title">グループ設定</h2>
+	<SectionTitle>グループ設定</SectionTitle>
 	<form method="POST" action="?/rename" use:enhance>
 		<div class="card rename-card">
 			<input type="text" name="name" value={data.group.name} required maxlength="60" />
@@ -144,14 +133,6 @@
 		margin: 0;
 	}
 
-	.section-title {
-		font-size: 1rem;
-		color: var(--text-dim);
-		margin-top: 2rem;
-		border-bottom: 1px solid var(--border);
-		padding-bottom: 0.4rem;
-	}
-
 	.event-list,
 	.member-list {
 		list-style: none;
@@ -190,11 +171,6 @@
 	.member-name {
 		font-weight: 600;
 		flex: 1;
-	}
-
-	.chip-owner {
-		background: color-mix(in srgb, var(--accent) 16%, transparent);
-		color: var(--accent-soft);
 	}
 
 	.invite-card {
@@ -238,11 +214,5 @@
 		border-top: 1px dashed var(--border);
 		display: flex;
 		justify-content: flex-end;
-	}
-
-	:global(.btn-danger) {
-		border-color: var(--accent);
-		color: var(--accent-soft);
-		background: transparent;
 	}
 </style>

@@ -139,6 +139,26 @@ button:focus-visible {
 	color: var(--text-dim);
 }
 
+.chip-owner {
+	background: color-mix(in srgb, var(--accent) 16%, transparent);
+	color: var(--accent-soft);
+}
+
+.chip-group {
+	background: color-mix(in srgb, var(--yes) 12%, transparent);
+	color: var(--yes);
+}
+
+.chip-confirmed {
+	background: color-mix(in srgb, var(--gold) 16%, transparent);
+	color: var(--gold);
+}
+
+a.chip-group:hover {
+	text-decoration: none;
+	filter: brightness(1.2);
+}
+
 .muted {
 	color: var(--text-dim);
 }
@@ -149,4 +169,22 @@ button:focus-visible {
 	border-radius: 8px;
 	padding: 0.6em 1em;
 	margin: 0.8em 0;
+}
+
+.success-note {
+	background: color-mix(in srgb, var(--yes) 14%, transparent);
+	border: 1px solid var(--yes);
+	border-radius: 8px;
+	padding: 0.6em 1em;
+	margin: 0.8em 0;
+}
+
+.btn-danger {
+	border-color: var(--accent);
+	color: var(--accent-soft);
+	background: transparent;
+}
+
+.btn-danger:hover {
+	background: color-mix(in srgb, var(--accent) 15%, transparent);
 }

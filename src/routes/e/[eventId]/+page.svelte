@@ -1,6 +1,10 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
 	import { page } from '$app/state';
+	import MarkSelector from '$lib/components/MarkSelector.svelte';
+	import SectionTitle from '$lib/components/SectionTitle.svelte';
+	import StatusChip from '$lib/components/StatusChip.svelte';
+	import { withConfirm } from '$lib/confirm';
 	import { formatSlot } from '$lib/format';
 
 	let { data, form } = $props();
@@ -8,27 +12,7 @@
 	let submitting = $state(false);
 	let copied = $state(false);
 
-	const statusLabel = { open: '募集OK', suspended: '募集停止' } as const;
 	const markSymbol = { yes: '○', maybe: '△', no: '×' } as const;
-	const markChoices = [
-		{ value: 'yes', symbol: '○', label: '行ける' },
-		{ value: 'maybe', symbol: '△', label: 'たぶん' },
-		{ value: 'no', symbol: '×', label: '無理' },
-		{ value: 'clear', symbol: '−', label: '未回答' }
-	] as const;
-
-	// #13 の教訓: use:enhance は onsubmit の preventDefault を無視するため cancel() で止める
-	function withConfirm(message: string) {
-		return ({ cancel }: { cancel: () => void }) => {
-			if (!confirm(message)) {
-				cancel();
-				return;
-			}
-			return async ({ update }: { update: () => Promise<void> }) => {
-				await update();
-			};
-		};
-	}
 
 	const ogDescription = $derived(
 		data.authed
@@ -83,7 +67,7 @@
 	<!-- 未ログイン: ティーザー(回答状況・メンバーはログイン後) -->
 	<section class="teaser">
 		<div class="card teaser-card">
-			<span class="chip chip-{data.event.status}">{statusLabel[data.event.status]}</span>
+			<StatusChip status={data.event.status} />
 			<h1>{data.event.title}</h1>
 			{#if data.event.venue}<p class="muted">@ {data.event.venue}</p>{/if}
 			<p class="teaser-stats">
@@ -106,7 +90,7 @@
 				{/if}
 			</p>
 		</div>
-		<span class="chip chip-{data.event.status}">{statusLabel[data.event.status]}</span>
+		<StatusChip status={data.event.status} />
 	</div>
 
 	{#if data.event.memo}
@@ -144,7 +128,7 @@
 		<p class="success-note">回答を受け付けました🎟️</p>
 	{/if}
 
-	<h2 class="section-title">みんなの回答</h2>
+	<SectionTitle>みんなの回答</SectionTitle>
 
 	<div class="matrix-wrap">
 		<table class="matrix">
@@ -194,7 +178,7 @@
 		{/if}
 	</div>
 
-	<h2 class="section-title">あなたの回答</h2>
+	<SectionTitle>あなたの回答</SectionTitle>
 	{#if data.blockedReason}
 		<p class="muted">{data.blockedReason}</p>
 	{:else}
@@ -222,23 +206,13 @@
 							{formatSlot(slot)}
 							{#if suggested}<span class="suggested-tag">✨下書き</span>{/if}
 						</span>
-						<div class="mark-group" role="radiogroup" aria-label={formatSlot(slot)}>
-							{#each markChoices as choice (choice.value)}
-								<label class="mark-choice mark-choice-{choice.value}">
-									<input
-										type="radio"
-										name="slot_{slot.id}"
-										value={choice.value}
-										checked={data.myMarks[slot.id]
-											? data.myMarks[slot.id] === choice.value
-											: suggested
-												? suggested === choice.value
-												: choice.value === 'clear'}
-									/>
-									<span>{choice.symbol} {choice.label}</span>
-								</label>
-							{/each}
-						</div>
+						<MarkSelector
+							name="slot_{slot.id}"
+							value={data.myMarks[slot.id]}
+							{suggested}
+							includeClear
+							label={formatSlot(slot)}
+						/>
 					</div>
 				{/each}
 				<label class="display-name">
@@ -356,22 +330,6 @@
 		flex-wrap: wrap;
 	}
 
-	.success-note {
-		background: color-mix(in srgb, var(--yes) 14%, transparent);
-		border: 1px solid var(--yes);
-		border-radius: 8px;
-		padding: 0.6em 1em;
-		margin: 0.8em 0;
-	}
-
-	.section-title {
-		font-size: 1rem;
-		color: var(--text-dim);
-		margin-top: 2rem;
-		border-bottom: 1px solid var(--border);
-		padding-bottom: 0.4rem;
-	}
-
 	.matrix-wrap {
 		overflow-x: auto;
 	}
@@ -478,61 +436,6 @@
 		font-weight: 600;
 	}
 
-	.mark-group {
-		display: flex;
-		gap: 0.4rem;
-	}
-
-	.mark-choice input {
-		position: absolute;
-		opacity: 0;
-		pointer-events: none;
-	}
-
-	.mark-choice span {
-		display: inline-block;
-		padding: 0.3em 0.8em;
-		border: 1px solid var(--border);
-		border-radius: 999px;
-		cursor: pointer;
-		font-size: 0.9em;
-		transition:
-			background 0.12s,
-			color 0.12s;
-	}
-
-	.mark-choice input:focus-visible + span {
-		outline: 2px solid var(--accent);
-	}
-
-	.mark-choice-yes input:checked + span {
-		background: var(--yes);
-		border-color: var(--yes);
-		color: #10241d;
-		font-weight: 700;
-	}
-
-	.mark-choice-maybe input:checked + span {
-		background: var(--maybe);
-		border-color: var(--maybe);
-		color: #2a2010;
-		font-weight: 700;
-	}
-
-	.mark-choice-no input:checked + span {
-		background: var(--no);
-		border-color: var(--no);
-		color: #17121f;
-		font-weight: 700;
-	}
-
-	.mark-choice-clear input:checked + span {
-		background: var(--surface-2);
-		border-color: var(--text-dim);
-		color: var(--text-dim);
-		font-weight: 700;
-	}
-
 	.display-name {
 		display: grid;
 		gap: 0.3rem;
@@ -557,16 +460,6 @@
 		vertical-align: middle;
 	}
 
-	.chip-group {
-		background: color-mix(in srgb, var(--yes) 12%, transparent);
-		color: var(--yes);
-	}
-
-	a.chip-group:hover {
-		text-decoration: none;
-		filter: brightness(1.2);
-	}
-
 	.leave-row {
 		margin-top: 2.5rem;
 		padding-top: 1rem;
@@ -575,25 +468,11 @@
 		justify-content: flex-end;
 	}
 
-	/* モバイル: ○△× のタップ領域を広めに */
 	@media (max-width: 560px) {
 		.answer-row {
 			flex-direction: column;
 			align-items: stretch;
 			gap: 0.4rem;
-		}
-
-		.mark-group {
-			display: grid;
-			grid-template-columns: 1fr 1fr 1fr;
-			gap: 0.4rem;
-		}
-
-		.mark-choice span {
-			display: block;
-			text-align: center;
-			padding: 0.65em 0.4em;
-			font-size: 1em;
 		}
 	}
 </style>
