@@ -8,6 +8,24 @@
 	let { data, form } = $props();
 
 	const isSuspended = $derived(data.event.status === 'suspended');
+
+	// 最有力候補(○最多、タイなら△)。確定ラジオのデフォルト選択に使う
+	const bestSlotId = $derived.by(() => {
+		let best: string | null = null;
+		let bestYes = 0;
+		let bestMaybe = 0;
+		for (const slot of data.detail.slots) {
+			if (slot.isCancelled) continue;
+			const c = data.detail.counts[slot.id];
+			if (!c) continue;
+			if (c.yes > bestYes || (c.yes === bestYes && c.maybe > bestMaybe)) {
+				best = slot.id;
+				bestYes = c.yes;
+				bestMaybe = c.maybe;
+			}
+		}
+		return best;
+	});
 	const confirmedSlot = $derived(
 		data.event.confirmedSlotId
 			? (data.detail.slots.find((s) => s.id === data.event.confirmedSlotId) ?? null)
@@ -34,13 +52,13 @@
 <SectionTitle>募集ステータス</SectionTitle>
 <div class="card status-card">
 	{#if isSuspended}
-		<p class="muted">募集停止中(回答は一時ストップ)。候補の日時変更はこの間に。終わったら再開しましょう。</p>
+		<p class="muted">募集停止中(回答は一時ストップ)。再開するまでみんなは回答できません。</p>
 		<form method="POST" action="?/reopen" use:enhance>
 			<button class="btn btn-primary">▶ 募集を再開する</button>
 		</form>
 	{:else}
 		<p class="muted">
-			回答を受付中です。回答を一時的に止めたいとき・候補の日時を変更したいときは「募集停止」にします(いつでも再開できます)。
+			回答を受付中です。回答を意図的に止めたいときだけ「募集停止」にします(日時の変更は下の「候補の日時」からどうぞ)。
 		</p>
 		<form method="POST" action="?/suspend" use:enhance>
 			<button class="btn">⏸ 募集停止にする</button>
@@ -83,7 +101,7 @@
 					name="slot_id"
 					value={slot.id}
 					required
-					checked={slot.id === data.event.confirmedSlotId}
+					checked={slot.id === (data.event.confirmedSlotId ?? bestSlotId)}
 				/>
 				<span class="confirm-slot">{formatSlot(slot)}</span>
 				<span class="count-yes">○{counts.yes}</span>
@@ -96,8 +114,18 @@
 
 <SectionTitle>候補の日時</SectionTitle>
 <div class="card slots-card">
-	{#if !isSuspended}
-		<p class="muted">日時の変更をするには、先に「募集停止」にしてください。追加・中止はいつでもできます。</p>
+	{#if isSuspended}
+		<div class="edit-mode-banner">
+			✏️ 編集モード中(回答は一時停止しています)。日時の変更・中止が終わったら再開してください。
+			<form method="POST" action="?/reopen" use:enhance>
+				<button class="btn btn-primary btn-sm">✔ 編集を終えて募集を再開する</button>
+			</form>
+		</div>
+	{:else}
+		<form method="POST" action="?/suspend" use:enhance class="edit-start">
+			<button class="btn">✏️ 日時を変更する(回答を一時停止して編集モードへ)</button>
+		</form>
+		<p class="muted">候補の追加・中止はこのままいつでもできます。</p>
 	{/if}
 	{#each data.detail.slots as slot (slot.id)}
 		<div class="slot-line" class:cancelled={slot.isCancelled}>
@@ -231,6 +259,22 @@
 	.slots-card {
 		display: grid;
 		gap: 0.7rem;
+	}
+
+	.edit-mode-banner {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 0.8rem;
+		flex-wrap: wrap;
+		background: color-mix(in srgb, var(--maybe) 12%, transparent);
+		border: 1px solid var(--maybe);
+		border-radius: 8px;
+		padding: 0.7em 1em;
+	}
+
+	.edit-start {
+		justify-self: start;
 	}
 
 	.slot-line {
