@@ -7,6 +7,7 @@
 	import StatusChip from '$lib/components/StatusChip.svelte';
 	import { withConfirm } from '$lib/confirm';
 	import { formatSlot } from '$lib/format';
+	import { toast } from '$lib/toast.svelte';
 
 	let { data, form } = $props();
 
@@ -74,7 +75,9 @@
 				ownerBusy = false;
 				await invalidateAll();
 				if (result.type === 'failure') {
-					alert('操作できませんでした。主催者メニューから確認してください。');
+					toast('操作できませんでした。主催者メニューから確認してください', { kind: 'error' });
+				} else {
+					toast('反映しました');
 				}
 			};
 		};
@@ -205,14 +208,16 @@
 	{#if form?.message}
 		<p class="error-note">{form.message}</p>
 	{/if}
-	{#if form?.success}
-		<p class="success-note">回答を受け付けました🎟️</p>
-	{/if}
 
 	<SectionTitle>回答表</SectionTitle>
 	{#if !data.blockedReason && Object.keys(data.suggestions).length > 0}
 		<p class="suggestion-note">
 			✨ あなたの<a href="/settings">都合ルール</a>とカレンダーから未回答分を下書きしました。確認して保存してください。
+		</p>
+	{/if}
+	{#if data.calendarError}
+		<p class="warn-note">
+			⚠ カレンダーの空き状況を取得できませんでした(連携が切れている可能性があります)。<a href="/settings">設定</a>から確認してください。
 		</p>
 	{/if}
 
@@ -222,10 +227,21 @@
 		oninput={() => (dirty = true)}
 		use:enhance={() => {
 			submitting = true;
-			return async ({ update }) => {
+			return async ({ result, update }) => {
 				submitting = false;
 				dirty = false;
 				await update();
+				if (result.type === 'success') {
+					toast('回答を保存しました🎟️');
+					if (!data.hasAutoSetup) {
+						toast('都合ルールやカレンダー連携で、次からは自動で下書きされます', {
+							kind: 'info',
+							href: '/settings',
+							linkText: '設定する',
+							durationMs: 8000
+						});
+					}
+				}
 			};
 		}}
 	>
@@ -458,6 +474,14 @@
 		background: var(--surface-2);
 		color: var(--text);
 		max-width: 16rem;
+	}
+
+	.warn-note {
+		background: color-mix(in srgb, var(--maybe) 12%, transparent);
+		border: 1px solid var(--maybe);
+		border-radius: 8px;
+		padding: 0.6em 1em;
+		margin: 0.8em 0;
 	}
 
 	.suggestion-note {

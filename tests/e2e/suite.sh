@@ -348,6 +348,8 @@ check "連携済み表示に変わる" "yes" "$(echo "$RPAGE" | grep -q '✅ 連
 F=$(create_event 'カレンダー耐障害性' 2026-11-01 2026-11-01 2026-11-02)
 CODE=$(curl -s -o /dev/null -w '%{http_code}' "$BASE/e/$F" -H "Cookie: $BOB")
 check "FreeBusy 失敗でもイベントページは 200" "200" "$CODE"
+FBODY=$(curl -s "$BASE/e/$F" -H "Cookie: $BOB")
+check "本人にだけ取得失敗の警告が出る (#34)" "yes" "$(echo "$FBODY" | grep -q '空き状況を取得できませんでした' && echo yes || echo no)"
 CNT=$(d1_json "SELECT COUNT(*) c FROM answers a JOIN participants p ON a.participant_id=p.id WHERE p.event_id='$F'" "r[0].c")
 check "失敗時も回答は保存されない" "0" "$CNT"
 npx wrangler d1 execute makuai --local --command "DELETE FROM account WHERE id='acc_bob_google'" > /dev/null

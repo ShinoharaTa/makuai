@@ -50,9 +50,12 @@ export const load: PageServerLoad = async ({ locals, params, url }) => {
 	const myRules = await db.select().from(ngRules).where(eq(ngRules.userId, locals.user!.id));
 	const unanswered = detail.slots.filter((s) => !s.isCancelled && !myMarks[s.id]);
 
-	// カレンダー連携済みなら候補期間の busy を取得(保存はしない。失敗時は静かに無効)
+	// カレンダー連携済みなら候補期間の busy を取得(保存はしない)。
+	// 取得失敗は本人にだけ知らせる(calendarError)
+	const calendarConnected = await hasCalendarConnection(db, locals.user!.id);
 	let busy = null;
-	if (unanswered.length > 0 && (await hasCalendarConnection(db, locals.user!.id))) {
+	let calendarError = false;
+	if (unanswered.length > 0 && calendarConnected) {
 		const dates = unanswered.map((s) => s.date).sort();
 		busy = await fetchBusyWindows(
 			locals.auth,
@@ -60,6 +63,7 @@ export const load: PageServerLoad = async ({ locals, params, url }) => {
 			`${dates[0]}T00:00:00+09:00`,
 			`${dates[dates.length - 1]}T23:59:59+09:00`
 		);
+		calendarError = busy === null;
 	}
 
 	const suggestions = suggestMarks(
@@ -84,6 +88,9 @@ export const load: PageServerLoad = async ({ locals, params, url }) => {
 		myParticipantId: myParticipant?.id ?? null,
 		group,
 		suggestions,
+		calendarError,
+		// 自動下書きの材料(ルール or カレンダー)を持っているか。初回ナッジに使う
+		hasAutoSetup: myRules.length > 0 || calendarConnected,
 		googleCalendarUrl: confirmedSlot
 			? googleCalendarUrl({
 					uid: event.id,
