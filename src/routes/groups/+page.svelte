@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
+	import SectionTitle from '$lib/components/SectionTitle.svelte';
 
 	let { data, form } = $props();
 
@@ -34,7 +35,7 @@
 	<p class="muted">まだグループがありません。</p>
 {/if}
 
-<h2 class="section-title">グループをつくる</h2>
+<SectionTitle>グループをつくる</SectionTitle>
 <form
 	method="POST"
 	action="?/create"
@@ -77,19 +78,6 @@
 	.group-name {
 		font-weight: 700;
 		flex: 1;
-	}
-
-	.chip-owner {
-		background: color-mix(in srgb, var(--accent) 16%, transparent);
-		color: var(--accent-soft);
-	}
-
-	.section-title {
-		font-size: 1rem;
-		color: var(--text-dim);
-		margin-top: 2rem;
-		border-bottom: 1px solid var(--border);
-		padding-bottom: 0.4rem;
 	}
 
 	.create-card {

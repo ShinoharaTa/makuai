@@ -2,16 +2,12 @@
 	import { enhance } from '$app/forms';
 	import { invalidateAll } from '$app/navigation';
 	import { page } from '$app/state';
+	import MarkSelector from '$lib/components/MarkSelector.svelte';
+	import SectionTitle from '$lib/components/SectionTitle.svelte';
+	import StatusChip from '$lib/components/StatusChip.svelte';
 	import { formatSlot } from '$lib/format';
 
 	let { data } = $props();
-
-	const statusLabel = { open: '募集OK', suspended: '募集停止' } as const;
-	const markChoices = [
-		{ value: 'yes', symbol: '○', label: '行ける' },
-		{ value: 'maybe', symbol: '△', label: 'たぶん' },
-		{ value: 'no', symbol: '×', label: '無理' }
-	] as const;
 	const description =
 		'幕間(まくあい)は、ライブ・観劇からオフ会・旅行まで使えるみんなの日程調整。候補の日時ごとに、誰が行けるかがひと目でわかります。';
 
@@ -83,7 +79,7 @@
 	</section>
 
 	{#if upcoming.length > 0}
-		<h2 class="section-title">🎫 参加予定</h2>
+		<SectionTitle>🎫 参加予定</SectionTitle>
 		<ul class="event-list">
 			{#each upcoming as ev (ev.id)}
 				<li>
@@ -97,7 +93,7 @@
 		</ul>
 	{/if}
 
-	<h2 class="section-title">進行中の調整</h2>
+	<SectionTitle>進行中の調整</SectionTitle>
 	{#if active.length > 0}
 		<ul class="event-list">
 			{#each active as ev (ev.id)}
@@ -114,7 +110,7 @@
 						{#if needsAnswer}
 							<span class="chip chip-unanswered">未回答 {ev.unansweredCount}</span>
 						{/if}
-						<span class="chip chip-{ev.status}">{statusLabel[ev.status]}</span>
+						<StatusChip status={ev.status} />
 					</a>
 					{#if needsAnswer}
 						<!-- クイック回答: イベントページの answer アクションへそのまま POST -->
@@ -145,19 +141,11 @@
 									<span class="answer-slot" class:unanswered={!ev.myMarks[slot.id]}>
 										{formatSlot(slot)}
 									</span>
-									<div class="mark-group" role="radiogroup" aria-label={formatSlot(slot)}>
-										{#each markChoices as choice (choice.value)}
-											<label class="mark-choice mark-choice-{choice.value}">
-												<input
-													type="radio"
-													name="slot_{slot.id}"
-													value={choice.value}
-													checked={ev.myMarks[slot.id] === choice.value}
-												/>
-												<span>{choice.symbol} {choice.label}</span>
-											</label>
-										{/each}
-									</div>
+									<MarkSelector
+										name="slot_{slot.id}"
+										value={ev.myMarks[slot.id]}
+										label={formatSlot(slot)}
+									/>
 								</div>
 							{/each}
 							<button type="submit" class="btn btn-primary btn-sm" disabled={submittingId === ev.id}>
@@ -220,14 +208,6 @@
 		gap: 0.6rem;
 	}
 
-	.section-title {
-		font-size: 1rem;
-		color: var(--text-dim);
-		margin-top: 2rem;
-		border-bottom: 1px solid var(--border);
-		padding-bottom: 0.4rem;
-	}
-
 	.event-list {
 		list-style: none;
 		margin: 0.8rem 0 0;
@@ -279,21 +259,6 @@
 		opacity: 0.75;
 	}
 
-	.chip-owner {
-		background: color-mix(in srgb, var(--accent) 16%, transparent);
-		color: var(--accent-soft);
-	}
-
-	.chip-confirmed {
-		background: color-mix(in srgb, var(--gold) 16%, transparent);
-		color: var(--gold);
-	}
-
-	.chip-group {
-		background: color-mix(in srgb, var(--yes) 12%, transparent);
-		color: var(--yes);
-	}
-
 	.chip-unanswered {
 		background: var(--accent);
 		color: #fff;
@@ -306,6 +271,11 @@
 	.archive summary {
 		cursor: pointer;
 		list-style: revert;
+		font-size: 1rem;
+		color: var(--text-dim);
+		margin-top: 2rem;
+		border-bottom: 1px solid var(--border);
+		padding-bottom: 0.4rem;
 	}
 
 	/* クイック回答 */
@@ -335,72 +305,11 @@
 		color: var(--accent);
 	}
 
-	.mark-group {
-		display: flex;
-		gap: 0.4rem;
-	}
-
-	.mark-choice input {
-		position: absolute;
-		opacity: 0;
-		pointer-events: none;
-	}
-
-	.mark-choice span {
-		display: inline-block;
-		padding: 0.3em 0.8em;
-		border: 1px solid var(--border);
-		border-radius: 999px;
-		cursor: pointer;
-		font-size: 0.9em;
-		transition:
-			background 0.12s,
-			color 0.12s;
-	}
-
-	.mark-choice input:focus-visible + span {
-		outline: 2px solid var(--accent);
-	}
-
-	.mark-choice-yes input:checked + span {
-		background: var(--yes);
-		border-color: var(--yes);
-		color: #10241d;
-		font-weight: 700;
-	}
-
-	.mark-choice-maybe input:checked + span {
-		background: var(--maybe);
-		border-color: var(--maybe);
-		color: #2a2010;
-		font-weight: 700;
-	}
-
-	.mark-choice-no input:checked + span {
-		background: var(--no);
-		border-color: var(--no);
-		color: #17121f;
-		font-weight: 700;
-	}
-
 	@media (max-width: 560px) {
 		.answer-row {
 			flex-direction: column;
 			align-items: stretch;
 			gap: 0.4rem;
-		}
-
-		.mark-group {
-			display: grid;
-			grid-template-columns: 1fr 1fr 1fr;
-			gap: 0.4rem;
-		}
-
-		.mark-choice span {
-			display: block;
-			text-align: center;
-			padding: 0.65em 0.4em;
-			font-size: 1em;
 		}
 	}
 </style>
