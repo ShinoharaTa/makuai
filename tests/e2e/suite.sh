@@ -255,7 +255,7 @@ CODE=$(curl -s -o /dev/null -w '%{http_code}' -X POST "$BASE/settings/rules?/add
   --data-urlencode 'day=1' --data-urlencode 'start_time=18:00' --data-urlencode 'end_time=09:00')
 check "開始>=終了のルールは 400" "400" "$CODE"
 RPAGE=$(curl -s "$BASE/settings/rules" -H "Cookie: $BOB")
-check "一覧に表示される" "yes" "$(echo "$RPAGE" | grep -q '月・火・水・木・金 の 09:00〜18:00' && echo yes || echo no)"
+check "一覧に編集フォームで表示される" "yes" "$(echo "$RPAGE" | grep -q 'name="rule_id"' && echo "$RPAGE" | grep -q 'name="start_time" value="09:00"' && echo yes || echo no)"
 
 echo "== 22. イベントページで下書き提案(平日昼=×、土曜=○)"
 # 2026-08-03(月)13:00 / 2026-08-01(土)13:00 / 2026-08-08(土)18:00
@@ -273,6 +273,31 @@ echo "== 23. 回答済みスロットには提案しない"
 curl -s -o /dev/null -X POST "$BASE/e/$R?/answer" -H "Cookie: $BOB" -H "$ORIGIN" -H "$ACCEPT" --data-urlencode "slot_$MON=yes"
 RBODY2=$(curl -s "$BASE/e/$R" -H "Cookie: $BOB")
 check "手動回答(○)がルール(×)より優先" "yes" "$(echo "$RBODY2" | grep -o "name=\"slot_$MON\" value=\"yes\"[^>]*" | grep -q checked && echo yes || echo no)"
+
+echo "== 23b. ルールの編集(#26)"
+RID=$(d1_json "SELECT id FROM ng_rules WHERE user_id='u_bob' LIMIT 1" "r[0].id")
+CODE=$(curl -s -o /dev/null -w '%{http_code}' -X POST "$BASE/settings/rules?/update" \
+  -H "Cookie: $BOB" -H "$ORIGIN" -H "$ACCEPT" --data-urlencode "rule_id=$RID" \
+  --data-urlencode 'day=0' --data-urlencode 'day=6' \
+  --data-urlencode 'start_time=10:00' --data-urlencode 'end_time=12:00')
+check "編集が成功" "200" "$CODE"
+ROW=$(d1_json "SELECT days, start_time, end_time FROM ng_rules WHERE id='$RID'" "r[0].days+':'+r[0].start_time+'-'+r[0].end_time")
+check "曜日・時間帯が更新される" "0,6:10:00-12:00" "$ROW"
+CODE=$(curl -s -o /dev/null -w '%{http_code}' -X POST "$BASE/settings/rules?/update" \
+  -H "Cookie: $BOB" -H "$ORIGIN" -H "$ACCEPT" --data-urlencode "rule_id=$RID" \
+  --data-urlencode 'day=1' --data-urlencode 'start_time=18:00' --data-urlencode 'end_time=09:00')
+check "終了<=開始の編集は 400" "400" "$CODE"
+curl -s -o /dev/null -X POST "$BASE/settings/rules?/update" \
+  -H "Cookie: $ALICE" -H "$ORIGIN" -H "$ACCEPT" --data-urlencode "rule_id=$RID" \
+  --data-urlencode 'day=1' --data-urlencode 'start_time=00:00' --data-urlencode 'end_time=01:00'
+ROW=$(d1_json "SELECT days FROM ng_rules WHERE id='$RID'" "r[0].days")
+check "他人のルールは編集できない(変化なし)" "0,6" "$ROW"
+# 後続テストのために平日ルールへ戻す
+curl -s -o /dev/null -X POST "$BASE/settings/rules?/update" \
+  -H "Cookie: $BOB" -H "$ORIGIN" -H "$ACCEPT" --data-urlencode "rule_id=$RID" \
+  --data-urlencode 'day=1' --data-urlencode 'day=2' --data-urlencode 'day=3' \
+  --data-urlencode 'day=4' --data-urlencode 'day=5' \
+  --data-urlencode 'start_time=09:00' --data-urlencode 'end_time=18:00'
 
 echo "== 24. ルールなしユーザー・削除"
 ABODY=$(curl -s "$BASE/e/$R" -H "Cookie: $ALICE")

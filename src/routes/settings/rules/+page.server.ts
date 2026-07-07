@@ -20,33 +20,51 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 	};
 };
 
+function parseRuleForm(
+	form: FormData
+): { days: string; startTime: string; endTime: string } | string {
+	const days = form
+		.getAll('day')
+		.map(String)
+		.filter((d) => /^[0-6]$/.test(d));
+	const startTime = String(form.get('start_time') ?? '').trim();
+	const endTime = String(form.get('end_time') ?? '').trim();
+
+	if (days.length === 0) return '曜日を1つ以上選んでください';
+	if (!/^\d{2}:\d{2}$/.test(startTime) || !/^\d{2}:\d{2}$/.test(endTime)) {
+		return '時間帯が正しくありません';
+	}
+	if (endTime <= startTime) return '終了時刻は開始時刻より後にしてください';
+	return { days: [...new Set(days)].sort().join(','), startTime, endTime };
+}
+
 export const actions: Actions = {
 	add: async ({ locals, request, url }) => {
 		if (!locals.user) redirectToLogin(url.pathname);
 		const form = await request.formData();
-		const days = form
-			.getAll('day')
-			.map(String)
-			.filter((d) => /^[0-6]$/.test(d));
-		const startTime = String(form.get('start_time') ?? '').trim();
-		const endTime = String(form.get('end_time') ?? '').trim();
-
-		if (days.length === 0) return fail(400, { message: '曜日を1つ以上選んでください' });
-		if (!/^\d{2}:\d{2}$/.test(startTime) || !/^\d{2}:\d{2}$/.test(endTime)) {
-			return fail(400, { message: '時間帯が正しくありません' });
-		}
-		if (endTime <= startTime) {
-			return fail(400, { message: '終了時刻は開始時刻より後にしてください' });
-		}
+		const input = parseRuleForm(form);
+		if (typeof input === 'string') return fail(400, { message: input });
 
 		await locals.db.insert(ngRules).values({
 			id: nanoid(21),
 			userId: locals.user!.id,
-			days: [...new Set(days)].sort().join(','),
-			startTime,
-			endTime,
+			...input,
 			createdAt: new Date()
 		});
+		return { success: true };
+	},
+
+	update: async ({ locals, request, url }) => {
+		if (!locals.user) redirectToLogin(url.pathname);
+		const form = await request.formData();
+		const id = String(form.get('rule_id') ?? '');
+		const input = parseRuleForm(form);
+		if (typeof input === 'string') return fail(400, { message: input });
+
+		await locals.db
+			.update(ngRules)
+			.set(input)
+			.where(and(eq(ngRules.id, id), eq(ngRules.userId, locals.user!.id)));
 		return { success: true };
 	},
 
