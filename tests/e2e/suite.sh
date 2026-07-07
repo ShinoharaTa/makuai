@@ -66,6 +66,8 @@ CODE=$(curl -s -o /dev/null -w '%{http_code}' -X POST "$BASE/e/$EID/manage?/susp
 check "非主催者の suspend は 403" "403" "$CODE"
 
 echo "== 5. open 中: 日時変更は不可、中止・復活は可能"
+MPAGE=$(curl -s "$BASE/e/$EID/manage" -H "Cookie: $ALICE")
+check "編集モードへの導線(日時を変更する)がある" "yes" "$(echo "$MPAGE" | grep -q '日時を変更する' && echo yes || echo no)"
 CODE=$(curl -s -o /dev/null -w '%{http_code}' -X POST "$BASE/e/$EID/manage?/updateSlot" \
   -H "Cookie: $ALICE" -H "$ORIGIN" -H "$ACCEPT" --data-urlencode "slot_id=$S1" \
   --data-urlencode 'date=2026-08-09' --data-urlencode 'start_time=14:00' --data-urlencode 'label=昼の部')
@@ -87,6 +89,8 @@ CODE=$(curl -s -o /dev/null -w '%{http_code}' -X POST "$BASE/e/$EID?/answer" \
 check "suspended 中の回答は 409" "409" "$CODE"
 
 echo "== 7. suspended 中にスロット変更・中止"
+MPAGE=$(curl -s "$BASE/e/$EID/manage" -H "Cookie: $ALICE")
+check "編集モードバナーと再開ボタンが出る" "yes" "$(echo "$MPAGE" | grep -q '編集モード中' && echo "$MPAGE" | grep -q '編集を終えて募集を再開' && echo yes || echo no)"
 CODE=$(curl -s -o /dev/null -w '%{http_code}' -X POST "$BASE/e/$EID/manage?/updateSlot" \
   -H "Cookie: $ALICE" -H "$ORIGIN" -H "$ACCEPT" --data-urlencode "slot_id=$S1" \
   --data-urlencode 'date=2026-08-08' --data-urlencode 'start_time=13:30' --data-urlencode 'label=昼の部')
