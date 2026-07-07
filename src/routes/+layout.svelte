@@ -2,6 +2,7 @@
 	import '../app.css';
 	import favicon from '$lib/assets/favicon.svg';
 	import { page } from '$app/state';
+	import Toasts from '$lib/components/Toasts.svelte';
 
 	let { data, children } = $props();
 
@@ -20,6 +21,8 @@
 <svelte:head>
 	<link rel="icon" href={favicon} />
 </svelte:head>
+
+<Toasts />
 
 <div class="shell">
 	<header class="header">

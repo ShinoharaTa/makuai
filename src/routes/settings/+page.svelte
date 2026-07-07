@@ -3,11 +3,18 @@
 	import { goto, invalidateAll } from '$app/navigation';
 	import { authClient } from '$lib/auth-client';
 	import SectionTitle from '$lib/components/SectionTitle.svelte';
+	import { toast } from '$lib/toast.svelte';
 
 	let { data, form } = $props();
 
 	const dayNames = ['日', '月', '火', '水', '木', '金', '土'];
 	let connecting = $state(false);
+
+	const toastResult = () =>
+		async ({ result, update }: { result: { type: string }; update: () => Promise<void> }) => {
+			await update();
+			if (result.type === 'success') toast('反映しました');
+		};
 
 	async function signOut() {
 		await authClient.signOut();
@@ -38,16 +45,12 @@
 {#if form?.message}
 	<p class="error-note">{form.message}</p>
 {/if}
-{#if form?.success}
-	<p class="success-note">反映しました</p>
-{/if}
-
 <SectionTitle>登録済みのルール</SectionTitle>
 {#if data.rules.length > 0}
 	<ul class="rule-list">
 		{#each data.rules as rule (rule.id)}
 			<li class="card rule-card">
-				<form method="POST" action="?/update" use:enhance class="rule-edit">
+				<form method="POST" action="?/update" use:enhance={toastResult} class="rule-edit">
 					<input type="hidden" name="rule_id" value={rule.id} />
 					<span class="rule-prefix">🚫</span>
 					<div class="day-row" role="group" aria-label="曜日">
@@ -71,7 +74,7 @@
 					</span>
 					<button class="btn btn-sm">保存</button>
 				</form>
-				<form method="POST" action="?/remove" use:enhance>
+				<form method="POST" action="?/remove" use:enhance={toastResult}>
 					<input type="hidden" name="rule_id" value={rule.id} />
 					<button class="btn btn-ghost btn-sm">削除</button>
 				</form>
@@ -105,7 +108,7 @@
 </div>
 
 <SectionTitle>ルールを追加</SectionTitle>
-<form method="POST" action="?/add" use:enhance>
+<form method="POST" action="?/add" use:enhance={toastResult}>
 	<div class="card add-card">
 		<div class="day-row" role="group" aria-label="曜日">
 			{#each dayNames as name, i (i)}

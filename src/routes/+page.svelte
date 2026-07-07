@@ -69,6 +69,21 @@
 		<a href="/events/new" class="btn btn-primary">+ 調整をつくる</a>
 	</section>
 
+	{#if data.dashboard.length === 0}
+		<div class="card onboarding">
+			<h2>ようこそ!3ステップで始められます</h2>
+			<ol>
+				<li><strong>調整をつくる</strong> — タイトルと候補の日時を入れるだけ</li>
+				<li><strong>URL を送る</strong> — LINE でもなんでも、メンバーに共有</li>
+				<li><strong>みんなで ○△×</strong> — 揃ったら日程を確定🎫</li>
+			</ol>
+			<p class="muted">
+				いつものメンバーがいるなら<a href="/groups">グループ</a>、毎回の入力を省くなら<a href="/settings">都合ルール</a>もどうぞ。
+			</p>
+			<a href="/events/new" class="btn btn-primary">最初の調整をつくる</a>
+		</div>
+	{/if}
+
 	{#if upcoming.length > 0}
 		<SectionTitle>🎫 参加予定</SectionTitle>
 		<ul class="event-list">
@@ -84,6 +99,7 @@
 		</ul>
 	{/if}
 
+	{#if data.dashboard.length > 0}
 	<SectionTitle>進行中の調整</SectionTitle>
 	{#if active.length > 0}
 		<ul class="event-list">
@@ -108,6 +124,7 @@
 		</ul>
 	{:else}
 		<p class="muted">進行中の調整はありません。「+ 調整をつくる」か、共有 URL から参加しましょう。</p>
+	{/if}
 	{/if}
 
 	{#if archived.length > 0}
